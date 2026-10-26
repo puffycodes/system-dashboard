@@ -17,6 +17,10 @@ where PowerShell isn't available.
 
 The examples below are run from this folder (src/useful-scripts/).
 
+The dashboards reproduce these scripts' lists entry for entry: src/powershell/
+and src/go/ on Windows match the .ps1 script, and src/go/ on Linux matches the
+.sh script. If you change what a script lists, update the dashboards to match.
+
 
 POWERSHELL (WINDOWS)
 --------------------

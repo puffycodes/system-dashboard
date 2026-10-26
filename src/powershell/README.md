@@ -33,8 +33,16 @@ The server listens on `localhost` only, so other machines can't reach it. The AP
 
 Errors come back as `{ "error": "..." }` with a 404 or 500 status.
 
+## Keeping in sync with the Go version
+
+[`src/go/`](../go/) is the same dashboard as a self-contained binary for Windows and Linux. It serves the same API and keeps its own copy of the UI:
+
+- **UI:** `src/go/www/` is a copy of `www/`. When you change the UI, change both copies, or copy one over the other.
+- **Software list:** `Get-InstalledSoftware` and `src/go/software_windows.go` use the same registry keys and filtering as [`list_installed_software.ps1`](../useful-scripts/list_installed_software.ps1). If you change one, change the others to match.
+
 ## Adding a panel
 
 1. Add a collector function to `modules/SystemDashboard.psm1` and include it in `Export-ModuleMember`.
 2. Add a route for it in `Invoke-Request` in `server.ps1`.
 3. Add a `<section class="card">` to `www/index.html` and a loader in `www/app.js`.
+4. Add the same panel to the Go version (see [src/go/README.md](../go/README.md#adding-a-panel)), or note that it's PowerShell-only.

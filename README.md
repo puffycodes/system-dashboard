@@ -1,6 +1,6 @@
 # System Dashboard
 
-Tools for inspecting a machine without installing any extra software (no Python, Node.js, etc.). Everything here runs on what the operating system already ships with.
+Tools for inspecting a machine without installing any extra software (no Python, Node.js, etc.) on it. The scripts and the PowerShell dashboard run on what the operating system already ships with. The Go dashboard is built once on any machine with Go, and then runs as a single self-contained binary.
 
 ## What's here
 
