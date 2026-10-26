@@ -7,6 +7,7 @@ Tools for inspecting a machine without installing any extra software (no Python,
 | Path | What it is |
 |---|---|
 | [`src/powershell/`](src/powershell/) | The system dashboard: a local web page served by Windows PowerShell 5.1. Currently shows the installed software in a filterable, sortable table. |
+| [`src/windows-go/`](src/windows-go/) | The same dashboard as a single self-contained Windows `.exe`, written in Go. Build it once, then copy it to any machine. |
 | [`src/useful-scripts/`](src/useful-scripts/) | Standalone `list_installed_software` scripts for PowerShell, POSIX `sh` (Linux) and cmd. Output as text, csv, json or html. |
 | [`docs/design-approach.md`](docs/design-approach.md) | Options for running programs without installing software, and why the dashboard uses PowerShell. |
 | [`docs/spec/`](docs/spec/) | Requirements for the [dashboard](docs/spec/system-dashboard.md) and the [installed-software list](docs/spec/list_installed_software.md). |
@@ -20,6 +21,15 @@ powershell -ExecutionPolicy Bypass -File .\src\powershell\server.ps1 -Open
 ```
 
 It opens at `http://localhost:8080/` and is only reachable from this machine. Press Ctrl+C in the console window to stop it. See [src/powershell/README.md](src/powershell/README.md).
+
+**Dashboard as an .exe (Go):** build it on a machine with Go 1.20+, then double-click `system-dashboard.exe` on any Windows machine:
+
+```sh
+cd src/windows-go
+go build -trimpath -ldflags "-s -w" -o system-dashboard.exe .
+```
+
+See [src/windows-go/README.md](src/windows-go/README.md).
 
 **Installed-software list:**
 

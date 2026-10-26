@@ -22,7 +22,7 @@ This is the approach the dashboard uses; it's implemented in [`src/powershell/`]
 
 If tools can be installed on the build machine but not the target, compile to a single `.exe` that carries its own runtime:
 
-- **Go**: `go build` produces one static `.exe`. Simplest option for small tools.
+- **Go**: `go build` produces one static `.exe`. Simplest option for small tools. The dashboard is also built this way in [`src/windows-go/`](../src/windows-go/).
 - **Rust**: same idea; very small, fast binaries.
 - **.NET 8+**: `dotnet publish -r win-x64 --self-contained -p:PublishSingleFile=true`.
 - **Python**: PyInstaller (`pyinstaller --onefile script.py`) or Nuitka.
