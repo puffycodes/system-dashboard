@@ -9,6 +9,7 @@ Tools for inspecting a machine without installing any extra software (no Python,
 | [`src/powershell/`](src/powershell/) | The system dashboard: a local web page served by Windows PowerShell 5.1. Currently shows the installed software in a filterable, sortable table. |
 | [`src/go/`](src/go/) | The same dashboard as a single self-contained binary for Windows or Linux, written in Go. Build it once, then copy it to any machine. |
 | [`src/useful-scripts/`](src/useful-scripts/) | Standalone `list_installed_software` scripts for PowerShell, POSIX `sh` (Linux) and cmd. Output as text, csv, json or html. |
+| [`scripts/`](scripts/) | `package.ps1` (Windows) and `package.sh` (Linux/macOS): build the dashboard and package the files each target machine needs into `dist/`. |
 | [`docs/design-approach.md`](docs/design-approach.md) | Options for running programs without installing software on Windows and Linux, and why the dashboard uses PowerShell and Go. |
 | [`docs/spec/`](docs/spec/) | Requirements for the [dashboard](docs/spec/system-dashboard.md) and the [installed-software list](docs/spec/list_installed_software.md). |
 
@@ -50,6 +51,32 @@ See [src/useful-scripts/README.md](src/useful-scripts/README.md) for all options
 
 Only the files below are needed on the target machine: no READMEs, source code or Go installation.
 
+### Packaging
+
+The packaging scripts build everything and put exactly these files in one archive per target, in `dist/`:
+
+```powershell
+.\scripts\package.ps1             # Windows: uses the built-in tar.exe (Windows 10 1803+)
+.\scripts\package.ps1 -SkipGo     # only the PowerShell version, if Go isn't installed
+```
+
+```sh
+./scripts/package.sh              # Linux/macOS: needs zip, bsdtar or python3 for the .zip files
+./scripts/package.sh -n           # only the PowerShell version, if Go isn't installed
+```
+
+| Archive in `dist/` | Contents | For |
+|---|---|---|
+| `system-dashboard-<version>-powershell.zip` | `system-dashboard/` folder (layout below) | Windows, PowerShell version |
+| `system-dashboard-<version>-windows-amd64.zip` | `system-dashboard.exe` | Windows, Go version |
+| `system-dashboard-<version>-linux-amd64.tar.gz` | `system-dashboard-linux-amd64` | Linux x86-64 |
+| `system-dashboard-<version>-linux-arm64.tar.gz` | `system-dashboard-linux-arm64` | Linux ARM64 |
+| `SHA256SUMS` | Checksums of the archives | Check a copy with `sha256sum -c SHA256SUMS` |
+
+`<version>` defaults to `git describe --tags --always --dirty`: the latest tag or commit, plus `-dirty` if tracked files have uncommitted changes. Set it with `-Version` / `-v`, and the output folder with `-OutDir` / `-o`. Before building, the scripts run `go vet` and `go test` and stop if either fails. They take files from the working tree, so uncommitted changes are included. `dist/` is git-ignored.
+
+The `.tar.gz` archives keep the Linux binaries executable, even when packaged on Windows: `tar -xzf system-dashboard-<version>-linux-amd64.tar.gz`, then run `./system-dashboard-linux-amd64`. Zip archives also avoid email filters that block `.exe` attachments.
+
 ### Go version (simplest)
 
 | Target | Copy this one file |
@@ -62,7 +89,7 @@ The web page is embedded in the binary, so that's all you need. On Linux, `uname
 
 The binaries are build output, not files in git. Build them with the commands in [src/go/README.md](src/go/README.md#build).
 
-- **Linux:** copying through Windows or a USB stick usually drops the executable permission. Run `chmod +x system-dashboard-linux-amd64` before starting it. `scp -p` keeps the permission.
+- **Linux:** copying the bare binary through Windows or a USB stick usually drops the executable permission. Run `chmod +x system-dashboard-linux-amd64` before starting it. `scp -p` and the `.tar.gz` packages keep the permission.
 - **Windows:** the `.exe` isn't code-signed. If it arrives by download or email, SmartScreen may warn on first run; choose **More info**, then **Run anyway**.
 
 ### PowerShell version (Windows)
