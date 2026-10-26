@@ -19,16 +19,20 @@ In PowerShell, set the variables first, e.g. `$env:CGO_ENABLED='0'; $env:GOOS='l
 
 `-ldflags "-s -w"` strips debug info, giving binaries of about 5 MB. Build output is git-ignored.
 
+To build all three targets and package them for copying to other machines, use the packaging scripts instead: `scripts\package.ps1` on Windows or `scripts/package.sh` on Linux/macOS. They also run `go vet` and `go test` first. See [Packaging](../../README.md#packaging) in the root README. The scripts repeat the targets and build flags above, so if you change those, update `scripts/package.ps1` and `scripts/package.sh` too.
+
 ## Run
 
 **Windows:** double-click `system-dashboard.exe`. It opens `http://localhost:8080/` in the default browser.
 
-**Linux:** copy the binary over, then:
+**Linux:** copy the package from the packaging scripts over, then extract and run it:
 
 ```sh
-chmod +x system-dashboard-linux-amd64
+tar -xzf system-dashboard-<version>-linux-amd64.tar.gz
 ./system-dashboard-linux-amd64
 ```
+
+If you copy the bare binary instead, run `chmod +x system-dashboard-linux-amd64` first; copying through Windows or a USB stick usually drops the executable permission.
 
 It opens the browser with `xdg-open` if there's a graphical session. On a headless machine, view it from your own machine over SSH; the binary prints this hint on start:
 

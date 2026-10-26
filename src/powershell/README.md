@@ -16,6 +16,10 @@ Press Ctrl+C in the console window to stop the server.
 
 The server listens on `localhost` only, so other machines can't reach it. The API has no authentication, so keep it that way. Binding to `localhost` also means no admin rights or URL ACL are needed.
 
+## Copying to another machine
+
+Run `.\scripts\package.ps1 -SkipGo` from the repo root (or without `-SkipGo` to build the Go version too). It writes `dist\system-dashboard-<version>-powershell.zip`, which contains only the files below in a `system-dashboard\` folder. Extract it on the target machine and double-click `start.cmd`. See [Copying the dashboard to another machine](../../README.md#copying-the-dashboard-to-another-machine) in the root README.
+
 ## Layout
 
 | Path | Purpose |
@@ -24,6 +28,8 @@ The server listens on `localhost` only, so other machines can't reach it. The AP
 | `modules/SystemDashboard.psm1` | Data collectors (`Get-InstalledSoftware`) that return plain objects |
 | `www/index.html`, `www/app.js`, `www/style.css` | The UI: plain HTML/JS/CSS, no build step or libraries |
 | `start.cmd` | Double-click launcher (bypasses the execution policy, opens the browser) |
+
+The packaging scripts copy `start.cmd`, `server.ps1`, and everything in `modules/` and `www/`. A new file in those folders is packaged automatically. If you add a file next to `server.ps1`, add it to `scripts/package.ps1` and `scripts/package.sh`.
 
 ## API
 
