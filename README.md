@@ -7,9 +7,9 @@ Tools for inspecting a machine without installing any extra software (no Python,
 | Path | What it is |
 |---|---|
 | [`src/powershell/`](src/powershell/) | The system dashboard: a local web page served by Windows PowerShell 5.1. Currently shows the installed software in a filterable, sortable table. |
-| [`src/windows-go/`](src/windows-go/) | The same dashboard as a single self-contained Windows `.exe`, written in Go. Build it once, then copy it to any machine. |
+| [`src/go/`](src/go/) | The same dashboard as a single self-contained binary for Windows or Linux, written in Go. Build it once, then copy it to any machine. |
 | [`src/useful-scripts/`](src/useful-scripts/) | Standalone `list_installed_software` scripts for PowerShell, POSIX `sh` (Linux) and cmd. Output as text, csv, json or html. |
-| [`docs/design-approach.md`](docs/design-approach.md) | Options for running programs without installing software, and why the dashboard uses PowerShell. |
+| [`docs/design-approach.md`](docs/design-approach.md) | Options for running programs without installing software on Windows and Linux, and why the dashboard uses PowerShell and Go. |
 | [`docs/spec/`](docs/spec/) | Requirements for the [dashboard](docs/spec/system-dashboard.md) and the [installed-software list](docs/spec/list_installed_software.md). |
 
 ## Quick start
@@ -22,14 +22,15 @@ powershell -ExecutionPolicy Bypass -File .\src\powershell\server.ps1 -Open
 
 It opens at `http://localhost:8080/` and is only reachable from this machine. Press Ctrl+C in the console window to stop it. See [src/powershell/README.md](src/powershell/README.md).
 
-**Dashboard as an .exe (Go):** build it on a machine with Go 1.20+, then double-click `system-dashboard.exe` on any Windows machine:
+**Dashboard as a single binary (Go, Windows or Linux):** build it on any machine with Go 1.20+, then copy the binary to the target:
 
 ```sh
-cd src/windows-go
-go build -trimpath -ldflags "-s -w" -o system-dashboard.exe .
+cd src/go
+GOOS=windows GOARCH=amd64 go build -trimpath -ldflags "-s -w" -o system-dashboard.exe .
+CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -trimpath -ldflags "-s -w" -o system-dashboard-linux-amd64 .
 ```
 
-See [src/windows-go/README.md](src/windows-go/README.md).
+On Windows, double-click `system-dashboard.exe`. On Linux, run `./system-dashboard-linux-amd64`; on a headless server, view it with `ssh -L 8080:localhost:8080 user@host`. See [src/go/README.md](src/go/README.md).
 
 **Installed-software list:**
 

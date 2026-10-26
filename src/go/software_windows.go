@@ -8,12 +8,6 @@ import (
 	"golang.org/x/sys/windows/registry"
 )
 
-// Software is one installed program, serialised as { "Name": ..., "Version": ... }.
-type Software struct {
-	Name    string `json:"Name"`
-	Version string `json:"Version"`
-}
-
 // The registry Uninstall keys that "Programs and Features" uses.
 var uninstallKeys = []struct {
 	root registry.Key

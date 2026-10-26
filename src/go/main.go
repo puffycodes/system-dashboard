@@ -1,8 +1,8 @@
 // Command system-dashboard serves the system dashboard on http://localhost:<port>/.
 //
-// It is a single self-contained executable: the web UI in www/ is embedded at
-// build time, so the .exe can be copied to any Windows machine and run with
-// nothing installed.
+// It is a single self-contained executable for Windows or Linux: the web UI
+// in www/ is embedded at build time, so the binary can be copied to any
+// machine of that OS and run with nothing installed.
 //
 // It listens on localhost only: the API exposes machine details and has no
 // authentication. Press Ctrl+C to stop.
@@ -17,8 +17,8 @@ import (
 	"net"
 	"net/http"
 	"os"
-	"os/exec"
 	"os/signal"
+	"syscall"
 	"time"
 )
 
@@ -48,11 +48,12 @@ func main() {
 	url := fmt.Sprintf("http://localhost:%d/", *port)
 	fmt.Printf("System dashboard running at %s (Ctrl+C to stop)\n", url)
 	if *open {
-		openBrowser(url)
+		openBrowser(url, *port)
 	}
 
-	// On Ctrl+C, stop accepting connections and let in-flight requests finish
-	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt)
+	// On Ctrl+C (or SIGTERM from kill/systemd), stop accepting connections and
+	// let in-flight requests finish
+	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 	stopped := make(chan struct{})
 	go func() {
@@ -68,10 +69,4 @@ func main() {
 	}
 	<-stopped
 	fmt.Println("Server stopped.")
-}
-
-func openBrowser(url string) {
-	if err := exec.Command("rundll32", "url.dll,FileProtocolHandler", url).Start(); err != nil {
-		log.Printf("Could not open the browser: %v. Open %s manually.", err, url)
-	}
 }

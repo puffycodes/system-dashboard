@@ -1,0 +1,4 @@
+# Build output
+*.exe
+system-dashboard-linux-*
+*.test

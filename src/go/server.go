@@ -14,6 +14,13 @@ import (
 //go:embed www
 var wwwFiles embed.FS
 
+// Software is one installed program, serialised as { "Name": ..., "Version": ... }.
+// Each OS provides getInstalledSoftware in software_<os>.go.
+type Software struct {
+	Name    string `json:"Name"`
+	Version string `json:"Version"`
+}
+
 // Set explicitly: on Windows, Go's mime package takes types from the registry,
 // which some machines map wrongly (e.g. .js as text/plain).
 var contentTypes = map[string]string{
@@ -76,7 +83,8 @@ func writeJSON(w http.ResponseWriter, status int, data any) {
 	json.NewEncoder(w).Encode(data)
 }
 
-// computerName matches $env:COMPUTERNAME in the PowerShell version.
+// computerName matches $env:COMPUTERNAME in the PowerShell version on Windows,
+// and uname -n in list_installed_software.sh on Linux.
 func computerName() string {
 	if name := os.Getenv("COMPUTERNAME"); name != "" {
 		return name
