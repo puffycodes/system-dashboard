@@ -54,7 +54,7 @@ Examples:
   sh list_installed_software.sh
   sh list_installed_software.sh -f csv  -o installed_software.csv
   sh list_installed_software.sh -f json -o installed_software.json
-  ./list_installed_software.sh -f html -o installed_software.html   (after chmod +x)
+  ./list_installed_software.sh -f html -o installed_software.html
 
 NOTE: Run it, don't source it. "source list_installed_software.sh" or
 ". ./list_installed_software.sh" is refused, because the script's "set -eu"
