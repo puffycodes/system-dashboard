@@ -7,7 +7,7 @@ function Get-InstalledSoftware {
         Lists installed software (name + version).
 
     .DESCRIPTION
-        Same source and filtering as list_installed_software.ps1: the registry
+        Same source and filtering as src/useful-scripts/list_installed_software.ps1: the registry
         Uninstall keys used by "Programs and Features", skipping entries without
         a DisplayName, system components, and updates/hotfixes attached to a
         parent product. See docs/spec/list_installed_software.md.

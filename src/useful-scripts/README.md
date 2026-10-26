@@ -1,7 +1,7 @@
 # List Installed Software
 
 Scripts that list the software installed on a machine, with each item's name and version.
-Requirements: [docs/spec/list_installed_software.md](docs/spec/list_installed_software.md).
+Requirements: [docs/spec/list_installed_software.md](../../docs/spec/list_installed_software.md).
 
 | Script | Platform | Output formats | Default output |
 |---|---|---|---|
