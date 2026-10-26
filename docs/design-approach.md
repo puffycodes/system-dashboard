@@ -16,6 +16,8 @@ Goal: run scripts/programs on a Windows machine without installing extra runtime
 
 A PowerShell script collects system data (`Get-CimInstance Win32_Processor`, `Get-Counter`, `Get-Process`, etc.) and serves it with `System.Net.HttpListener` on `http://localhost:8080`. A plain HTML/JS page displays it. The whole stack needs no installs.
 
+This is the approach the dashboard uses; it's implemented in [`src/powershell/`](../src/powershell/).
+
 ## 2. Build elsewhere, ship one self-contained executable
 
 If tools can be installed on the build machine but not the target, compile to a single `.exe` that carries its own runtime:

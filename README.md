@@ -34,3 +34,7 @@ sh src/useful-scripts/list_installed_software.sh -f csv -o installed_software.cs
 ```
 
 See [src/useful-scripts/README.md](src/useful-scripts/README.md) for all options.
+
+## Line endings
+
+[`.gitattributes`](.gitattributes) checks out all text files with LF, except `.bat` and `.cmd` files, which use CRLF because cmd.exe can mis-parse batch files with LF endings. If you add a file type that needs CRLF, add a rule for it there.

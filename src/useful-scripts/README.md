@@ -11,6 +11,8 @@ Requirements: [docs/spec/list_installed_software.md](../../docs/spec/list_instal
 
 On Windows, use the PowerShell script. It implements the full spec and handles special characters in names correctly. The batch script is kept for machines where PowerShell isn't available.
 
+The examples below are run from this folder (`src/useful-scripts/`).
+
 ## PowerShell (Windows)
 
 ```powershell

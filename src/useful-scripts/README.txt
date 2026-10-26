@@ -3,7 +3,7 @@ LIST INSTALLED SOFTWARE
 
 Scripts that list the software installed on a machine, with each item's name
 and version.
-Requirements: docs/spec/list_installed_software.md
+Requirements: ../../docs/spec/list_installed_software.md
 
   Script                        Platform                    Formats                 Default output
   ----------------------------  --------------------------  ----------------------  ------------------------
@@ -14,6 +14,8 @@ Requirements: docs/spec/list_installed_software.md
 On Windows, use the PowerShell script. It implements the full spec and handles
 special characters in names correctly. The batch script is kept for machines
 where PowerShell isn't available.
+
+The examples below are run from this folder (src/useful-scripts/).
 
 
 POWERSHELL (WINDOWS)
