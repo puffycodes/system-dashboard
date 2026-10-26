@@ -1,0 +1,36 @@
+# System Dashboard
+
+Tools for inspecting a machine without installing any extra software (no Python, Node.js, etc.). Everything here runs on what the operating system already ships with.
+
+## What's here
+
+| Path | What it is |
+|---|---|
+| [`src/powershell/`](src/powershell/) | The system dashboard: a local web page served by Windows PowerShell 5.1. Currently shows the installed software in a filterable, sortable table. |
+| [`src/useful-scripts/`](src/useful-scripts/) | Standalone `list_installed_software` scripts for PowerShell, POSIX `sh` (Linux) and cmd. Output as text, csv, json or html. |
+| [`docs/design-approach.md`](docs/design-approach.md) | Options for running programs without installing software, and why the dashboard uses PowerShell. |
+| [`docs/spec/`](docs/spec/) | Requirements for the [dashboard](docs/spec/system-dashboard.md) and the [installed-software list](docs/spec/list_installed_software.md). |
+
+## Quick start
+
+**Dashboard (Windows):** double-click `src/powershell/start.cmd`, or run:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\src\powershell\server.ps1 -Open
+```
+
+It opens at `http://localhost:8080/` and is only reachable from this machine. Press Ctrl+C in the console window to stop it. See [src/powershell/README.md](src/powershell/README.md).
+
+**Installed-software list:**
+
+```powershell
+# Windows
+.\src\useful-scripts\list_installed_software.ps1 -Format csv -OutFile installed_software.csv
+```
+
+```sh
+# Linux
+sh src/useful-scripts/list_installed_software.sh -f csv -o installed_software.csv
+```
+
+See [src/useful-scripts/README.md](src/useful-scripts/README.md) for all options.
