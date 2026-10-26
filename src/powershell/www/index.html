@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>System Dashboard</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header>
+    <h1>System Dashboard</h1>
+    <p id="machine" class="muted">Loading…</p>
+  </header>
+
+  <main>
+    <section class="card" aria-labelledby="software-title">
+      <div class="card-head">
+        <h2 id="software-title">Installed software</h2>
+        <span id="software-count" class="badge"></span>
+        <div class="spacer"></div>
+        <input id="software-filter" type="search" placeholder="Filter by name or version" aria-label="Filter installed software">
+        <button id="software-refresh" type="button">Refresh</button>
+      </div>
+
+      <p id="software-status" class="muted" role="status"></p>
+
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th scope="col" data-sort="Name">Name</th>
+              <th scope="col" data-sort="Version">Version</th>
+            </tr>
+          </thead>
+          <tbody id="software-body"></tbody>
+        </table>
+      </div>
+    </section>
+  </main>
+
+  <script src="app.js"></script>
+</body>
+</html>
