@@ -42,7 +42,8 @@ Errors come back as `{ "error": "..." }` with a 404 or 500 status.
 
 ## Adding a panel
 
-1. Add a collector function to `modules/SystemDashboard.psm1` and include it in `Export-ModuleMember`.
-2. Add a route for it in `Invoke-Request` in `server.ps1`.
-3. Add a `<section class="card">` to `www/index.html` and a loader in `www/app.js`.
-4. Add the same panel to the Go version (see [src/go/README.md](../go/README.md#adding-a-panel)), or note that it's PowerShell-only.
+1. Describe the feature in [docs/spec/system-dashboard.md](../../docs/spec/system-dashboard.md), which both implementations follow.
+2. Add a collector function to `modules/SystemDashboard.psm1` and include it in `Export-ModuleMember`.
+3. Add a route for it in `Invoke-Request` in `server.ps1`.
+4. Add a `<section class="card">` to `www/index.html` and a loader in `www/app.js`.
+5. Add the same panel to the Go version (see [src/go/README.md](../go/README.md#adding-a-panel)), or note that it's PowerShell-only.

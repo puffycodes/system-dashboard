@@ -102,6 +102,7 @@ The software lists match the other implementations entry for entry:
 
 ## Adding a panel
 
-1. Add a collector function for each OS (`<name>_windows.go` and `<name>_linux.go`). Put shared types in `server.go`.
-2. Add a route for it in `newHandler` in `server.go`, and a test in `server_test.go`.
-3. Add a `<section class="card">` to `www/index.html` and a loader in `www/app.js`, in both UI copies.
+1. Describe the feature in [docs/spec/system-dashboard.md](../../docs/spec/system-dashboard.md), which both implementations follow.
+2. Add a collector function for each OS (`<name>_windows.go` and `<name>_linux.go`). Put shared types in `server.go`.
+3. Add a route for it in `newHandler` in `server.go`, and a test in `server_test.go`.
+4. Add a `<section class="card">` to `www/index.html` and a loader in `www/app.js`, in both UI copies.
