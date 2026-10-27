@@ -9,7 +9,7 @@ Tools for inspecting a machine without installing any extra software (no Python,
 | [`src/powershell/`](src/powershell/) | The system dashboard: a local web page served by Windows PowerShell 5.1. Currently shows the installed software in a filterable, sortable table. |
 | [`src/go/`](src/go/) | The same dashboard as a single self-contained binary for Windows or Linux, written in Go. Build it once, then copy it to any machine. |
 | [`src/useful-scripts/`](src/useful-scripts/) | Standalone `list_installed_software` scripts for PowerShell, POSIX `sh` (Linux) and cmd. Output as text, csv, json or html. |
-| [`scripts/`](scripts/) | `package.ps1` (Windows) and `package.sh` (Linux/macOS): build the dashboard and package the files each target machine needs into `dist/`. |
+| [`scripts/`](scripts/) | `build.ps1` (Windows) and `build.sh` (Linux/macOS): build the bare Go binaries into `src/go/`. `package.ps1` and `package.sh`: build the dashboard and package the files each target machine needs into `dist/`. |
 | [`docs/design-approach.md`](docs/design-approach.md) | Options for running programs without installing software on Windows and Linux, and why the dashboard uses PowerShell and Go. |
 | [`docs/spec/`](docs/spec/) | Requirements for the [dashboard](docs/spec/system-dashboard.md) and the [installed-software list](docs/spec/list_installed_software.md). |
 
@@ -30,6 +30,8 @@ cd src/go
 GOOS=windows GOARCH=amd64 go build -trimpath -ldflags "-s -w" -o system-dashboard.exe .
 CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -trimpath -ldflags "-s -w" -o system-dashboard-linux-amd64 .
 ```
+
+Or run the build script from the repo root, which writes the binaries to `src/go/`: `.\scripts\build.ps1 -Target all` on Windows, `./scripts/build.sh -t all` on Linux/macOS.
 
 On Windows, double-click `system-dashboard.exe`. On Linux, run `./system-dashboard-linux-amd64`; on a headless server, view it with `ssh -L 8080:localhost:8080 user@host`. See [src/go/README.md](src/go/README.md).
 
@@ -87,7 +89,7 @@ The `.tar.gz` archives keep the Linux binaries executable, even when packaged on
 
 The web page is embedded in the binary, so that's all you need. On Linux, `uname -m` tells you which one: `x86_64` means amd64, `aarch64` means arm64.
 
-The binaries are build output, not files in git. Build them with the commands in [src/go/README.md](src/go/README.md#build).
+The binaries are build output, not files in git. Build them with `scripts\build.ps1` / `scripts/build.sh` or the commands in [src/go/README.md](src/go/README.md#build), or take them from the packages above.
 
 - **Linux:** copying the bare binary through Windows or a USB stick usually drops the executable permission. Run `chmod +x system-dashboard-linux-amd64` before starting it. `scp -p` and the `.tar.gz` packages keep the permission.
 - **Windows:** the `.exe` isn't code-signed. If it arrives by download or email, SmartScreen may warn on first run; choose **More info**, then **Run anyway**.
