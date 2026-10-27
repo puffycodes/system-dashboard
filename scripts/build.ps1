@@ -14,6 +14,8 @@
     NTFS has no executable bit, so after copying a Linux binary to Linux, run
     chmod +x on it first. package.ps1 makes archives that keep the bit.
 
+    -Clean removes these three files from src\go instead of building.
+
 .PARAMETER Target
     One or more of windows-amd64, linux-amd64, linux-arm64, or "all".
     Default: windows-amd64.
@@ -21,18 +23,27 @@
 .PARAMETER OutFile
     Path of the binary, instead of the default in src\go. Only with one target.
 
+.PARAMETER Clean
+    Remove the binaries from src\go instead of building. Files written
+    elsewhere with -OutFile are left alone.
+
 .EXAMPLE
     .\scripts\build.ps1
     .\scripts\build.ps1 -Target linux-amd64
     .\scripts\build.ps1 -Target windows-amd64, linux-arm64
     .\scripts\build.ps1 -Target all
     .\scripts\build.ps1 -OutFile C:\temp\system-dashboard.exe
+    .\scripts\build.ps1 -Clean
 #>
-[CmdletBinding()]
+[CmdletBinding(DefaultParameterSetName = 'Build')]
 param(
+    [Parameter(ParameterSetName = 'Build')]
     [ValidateSet('windows-amd64', 'linux-amd64', 'linux-arm64', 'all')]
     [string[]]$Target = 'windows-amd64',
-    [string]$OutFile
+    [Parameter(ParameterSetName = 'Build')]
+    [string]$OutFile,
+    [Parameter(ParameterSetName = 'Clean', Mandatory)]
+    [switch]$Clean
 )
 
 $ErrorActionPreference = 'Stop'
@@ -61,6 +72,20 @@ function Invoke-GoBuild {
     } finally {
         foreach ($name in $names) { [Environment]::SetEnvironmentVariable($name, $saved[$name], 'Process') }
     }
+}
+
+if ($Clean) {
+    $removed = 0
+    foreach ($name in $fileNames.Values) {
+        $file = Join-Path $goSource $name
+        if (Test-Path -LiteralPath $file) {
+            Remove-Item -LiteralPath $file
+            Write-Host "Removed $file"
+            $removed++
+        }
+    }
+    if ($removed -eq 0) { Write-Host 'Nothing to clean.' }
+    return
 }
 
 if (-not (Get-Command go -ErrorAction SilentlyContinue)) {
