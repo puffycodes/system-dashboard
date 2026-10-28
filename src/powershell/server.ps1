@@ -21,8 +21,12 @@
 .PARAMETER Open
     Open the dashboard in the default browser once the server starts.
 
+.PARAMETER Help
+    Show this help and exit without starting the server.
+
 .EXAMPLE
     .\server.ps1 -Open
+    .\server.ps1 -Help
     powershell -ExecutionPolicy Bypass -File .\server.ps1 -Port 9000
 #>
 [CmdletBinding()]
@@ -30,10 +34,17 @@ param(
     [ValidateRange(1, 65535)]
     [int]$Port = 8080,
 
-    [switch]$Open
+    [switch]$Open,
+
+    [switch]$Help
 )
 
 $ErrorActionPreference = 'Stop'
+
+if ($Help) {
+    Get-Help $PSCommandPath -Detailed
+    return
+}
 
 Import-Module (Join-Path $PSScriptRoot 'modules\SystemDashboard.psm1') -Force
 

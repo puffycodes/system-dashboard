@@ -9,6 +9,7 @@ Double-click `start.cmd`, or from PowerShell:
 ```powershell
 .\server.ps1 -Open                 # http://localhost:8080/
 .\server.ps1 -Port 9000            # different port
+.\server.ps1 -Help                 # show the options and exit
 powershell -ExecutionPolicy Bypass -File .\server.ps1 -Open   # if the execution policy blocks scripts
 ```
 
