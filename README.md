@@ -75,7 +75,7 @@ The packaging scripts build everything and put exactly these files in one archiv
 | `system-dashboard-<version>-linux-arm64.tar.gz` | `system-dashboard-linux-arm64` | Linux ARM64 |
 | `SHA256SUMS` | Checksums of the archives | Check a copy with `sha256sum -c SHA256SUMS` |
 
-`<version>` defaults to `git describe --tags --always --dirty`: the latest tag or commit, plus `-dirty` if tracked files have uncommitted changes. The Go binaries print the same version with `-version`. Set it with `-Version` / `-v`, and the output folder with `-OutDir` / `-o`. Before building, the scripts run `go vet` and `go test` and stop if either fails. They take files from the working tree, so uncommitted changes are included. `dist/` is git-ignored.
+`<version>` defaults to `git describe --tags --always --dirty`: the latest tag or commit, plus `-dirty` if tracked files have uncommitted changes. The Go binaries print the same version with `-version`, and the PowerShell version with `-Version`. Set it with `-Version` / `-v`, and the output folder with `-OutDir` / `-o`. Before building, the scripts run `go vet` and `go test` and stop if either fails. They take files from the working tree, so uncommitted changes are included. `dist/` is git-ignored.
 
 The `.tar.gz` archives keep the Linux binaries executable, even when packaged on Windows: `tar -xzf system-dashboard-<version>-linux-amd64.tar.gz`, then run `./system-dashboard-linux-amd64`. Zip archives also avoid email filters that block `.exe` attachments.
 
@@ -102,6 +102,7 @@ Copy the whole folder and keep its layout, because `server.ps1` looks for `modul
 system-dashboard\
 ├── start.cmd                      (double-click launcher; optional but convenient)
 ├── server.ps1
+├── VERSION                        (written by the packaging scripts; read by server.ps1 -Version)
 ├── modules\
 │   └── SystemDashboard.psm1
 └── www\
@@ -110,7 +111,7 @@ system-dashboard\
     └── style.css
 ```
 
-That's the contents of [`src/powershell/`](src/powershell/) without `README.md`. Double-click `start.cmd` to run it.
+That's the contents of [`src/powershell/`](src/powershell/) without `README.md`, plus the `VERSION` file. Double-click `start.cmd` to run it.
 
 If the files arrive by download, Windows marks them as coming from the internet. `start.cmd` bypasses the script policy, so it still works. If you run `server.ps1` directly instead, unblock the files first: `Get-ChildItem -Recurse | Unblock-File`.
 

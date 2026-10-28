@@ -10,6 +10,7 @@ A local web dashboard showing information about the machine it runs on.
     - The port can be changed with a command-line option.
     - Can open the default browser automatically on start.
 - A help option prints the command-line options and exits without starting the server.
+- A version option prints the version and exits without starting the server. Packaged copies report the version in their package name.
 - Prints the dashboard's URL on start, and a line per request (time, method, path, status).
 - If the port is already in use, exits with an error that suggests choosing another port.
 - Stops cleanly on Ctrl+C.

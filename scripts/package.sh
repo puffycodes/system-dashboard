@@ -23,7 +23,9 @@
 #
 #  Usage:  package.sh [-v version] [-o output_dir] [-n]
 #    -v  Version in the archive names, and reported by the Go
-#        binaries with -version. Default: git describe
+#        binaries with -version and the PowerShell version with
+#        -Version (from a VERSION file added to its folder).
+#        Default: git describe
 #        --tags --always --dirty, or "dev" outside a git checkout.
 #    -o  Output folder. Default: dist/ at the repo root.
 #    -n  Only package the PowerShell version, so Go isn't needed.
@@ -109,6 +111,7 @@ PS_DIR="$STAGE/powershell/system-dashboard"
 mkdir -p "$PS_DIR"
 cp "$REPO/src/powershell/start.cmd" "$REPO/src/powershell/server.ps1" "$PS_DIR/"
 cp -R "$REPO/src/powershell/modules" "$REPO/src/powershell/www" "$PS_DIR/"
+printf '%s\n' "$VERSION" > "$PS_DIR/VERSION"   # read by server.ps1 -Version
 make_zip "$OUT/system-dashboard-$VERSION-powershell.zip" "$STAGE/powershell" system-dashboard
 
 # --- Go binaries ----------------------------------------------------------

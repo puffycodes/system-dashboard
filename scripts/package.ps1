@@ -22,7 +22,8 @@
 
 .PARAMETER Version
     Version used in the archive names, and reported by the Go binaries with
-    -version. Default: git describe --tags --always --dirty,
+    -version and the PowerShell version with -Version (from a VERSION file
+    added to its folder). Default: git describe --tags --always --dirty,
     or "dev" outside a git checkout.
 
 .PARAMETER OutDir
@@ -136,6 +137,7 @@ try {
     New-Item -ItemType Directory -Path $psDir | Out-Null
     Copy-Item -LiteralPath (Join-Path $psSource 'start.cmd'), (Join-Path $psSource 'server.ps1') -Destination $psDir
     Copy-Item -LiteralPath (Join-Path $psSource 'modules'), (Join-Path $psSource 'www') -Destination $psDir -Recurse
+    [IO.File]::WriteAllText((Join-Path $psDir 'VERSION'), "$Version`n")   # read by server.ps1 -Version
 
     $zip = Join-Path $OutDir "system-dashboard-$Version-powershell.zip"
     New-Zip -ZipPath $zip -FromDir $psStage -Entry 'system-dashboard'

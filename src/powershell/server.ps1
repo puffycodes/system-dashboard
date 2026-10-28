@@ -24,9 +24,15 @@
 .PARAMETER Help
     Show this help and exit without starting the server.
 
+.PARAMETER Version
+    Print the version and exit without starting the server. The packaging
+    scripts write it to a VERSION file next to this script. Without that file,
+    as in a git checkout, it is git describe --tags --always --dirty, or "dev".
+
 .EXAMPLE
     .\server.ps1 -Open
     .\server.ps1 -Help
+    .\server.ps1 -Version
     powershell -ExecutionPolicy Bypass -File .\server.ps1 -Port 9000
 #>
 [CmdletBinding()]
@@ -36,13 +42,32 @@ param(
 
     [switch]$Open,
 
-    [switch]$Help
+    [switch]$Help,
+
+    [switch]$Version
 )
 
 $ErrorActionPreference = 'Stop'
 
+function Get-DashboardVersion {
+    $file = Join-Path $PSScriptRoot 'VERSION'
+    if (Test-Path -LiteralPath $file -PathType Leaf) {
+        $text = [IO.File]::ReadAllText($file).Trim()
+        if ($text) { return $text }
+    }
+    try {
+        $described = & git -C $PSScriptRoot describe --tags --always --dirty 2>$null
+        if ($LASTEXITCODE -eq 0 -and $described) { return "$described".Trim() }
+    } catch { }
+    'dev'
+}
+
 if ($Help) {
     Get-Help $PSCommandPath -Detailed
+    return
+}
+if ($Version) {
+    "system-dashboard $(Get-DashboardVersion)"
     return
 }
 
