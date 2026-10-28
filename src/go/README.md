@@ -49,6 +49,7 @@ Options (same on both):
 ```sh
 -port 9000       # different port (default 8080)
 -open=false      # don't try to open a browser
+-help            # show the options and exit (-h works too)
 ```
 
 Press Ctrl+C to stop the server. On Linux, SIGTERM (`kill`, systemd) also stops it cleanly.

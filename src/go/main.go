@@ -18,6 +18,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"path/filepath"
 	"syscall"
 	"time"
 )
@@ -25,7 +26,15 @@ import (
 func main() {
 	port := flag.Int("port", 8080, "port to listen on")
 	open := flag.Bool("open", true, "open the dashboard in the default browser on start")
+	help := flag.Bool("help", false, "show this help and exit")
+	flag.Usage = usage
 	flag.Parse()
+
+	if *help {
+		flag.CommandLine.SetOutput(os.Stdout)
+		flag.Usage()
+		return
+	}
 
 	if *port < 1 || *port > 65535 {
 		fmt.Fprintf(os.Stderr, "invalid -port %d: must be 1-65535\n", *port)
@@ -69,4 +78,25 @@ func main() {
 	}
 	<-stopped
 	fmt.Println("Server stopped.")
+}
+
+// usage prints the help shown for -help, -h, and invalid flags.
+func usage() {
+	w := flag.CommandLine.Output()
+	name := filepath.Base(os.Args[0])
+	fmt.Fprintf(w, `Usage: %s [flags]
+
+Serves the system dashboard on http://localhost:<port>/ and opens it in the
+default browser. It listens on localhost only: the API exposes machine details
+and has no authentication. Press Ctrl+C to stop.
+
+Flags:
+`, name)
+	flag.PrintDefaults()
+	fmt.Fprintf(w, `
+Examples:
+  %[1]s                 start on port 8080 and open the browser
+  %[1]s -port 9000      use a different port
+  %[1]s -open=false     don't open the browser
+`, name)
 }
