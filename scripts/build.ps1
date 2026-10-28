@@ -14,6 +14,9 @@
     NTFS has no executable bit, so after copying a Linux binary to Linux, run
     chmod +x on it first. package.ps1 makes archives that keep the bit.
 
+    Each binary prints its version with -version: the -Version given, or
+    git describe --tags --always --dirty, as in package.ps1.
+
     -Clean removes these three files from src\go instead of building.
 
 .PARAMETER Target
@@ -22,6 +25,10 @@
 
 .PARAMETER OutFile
     Path of the binary, instead of the default in src\go. Only with one target.
+
+.PARAMETER Version
+    Version the binaries report with -version. Default: git describe --tags
+    --always --dirty, or "dev" outside a git checkout.
 
 .PARAMETER Clean
     Remove the binaries from src\go instead of building. Files written
@@ -33,6 +40,7 @@
     .\scripts\build.ps1 -Target windows-amd64, linux-arm64
     .\scripts\build.ps1 -Target all
     .\scripts\build.ps1 -OutFile C:\temp\system-dashboard.exe
+    .\scripts\build.ps1 -Target all -Version 1.0.0
     .\scripts\build.ps1 -Clean
 #>
 [CmdletBinding(DefaultParameterSetName = 'Build')]
@@ -42,6 +50,8 @@ param(
     [string[]]$Target = 'windows-amd64',
     [Parameter(ParameterSetName = 'Build')]
     [string]$OutFile,
+    [Parameter(ParameterSetName = 'Build')]
+    [string]$Version,
     [Parameter(ParameterSetName = 'Clean', Mandatory)]
     [switch]$Clean
 )
@@ -57,6 +67,14 @@ $fileNames = [ordered]@{
     'linux-arm64'   = 'system-dashboard-linux-arm64'
 }
 
+function Get-DefaultVersion {
+    try {
+        $described = & git -C $repo describe --tags --always --dirty 2>$null
+        if ($LASTEXITCODE -eq 0 -and $described) { return "$described".Trim() }
+    } catch { }
+    'dev'
+}
+
 function Invoke-GoBuild {
     param([string]$GoOS, [string]$GoArch, [string]$OutFile)
     # Set the target explicitly, so GOOS/GOARCH left over in the session don't apply
@@ -67,7 +85,7 @@ function Invoke-GoBuild {
         $env:GOOS = $GoOS
         $env:GOARCH = $GoArch
         $env:CGO_ENABLED = '0'   # fully static, runs on any Linux distro
-        go build -trimpath -ldflags '-s -w' -o $OutFile .
+        go build -trimpath -ldflags "-s -w -X main.version=$Version" -o $OutFile .
         if ($LASTEXITCODE -ne 0) { throw "go build ($GoOS/$GoArch) failed (exit code $LASTEXITCODE)." }
     } finally {
         foreach ($name in $names) { [Environment]::SetEnvironmentVariable($name, $saved[$name], 'Process') }
@@ -98,6 +116,9 @@ if ($OutFile -and $Target.Count -gt 1) {
     throw '-OutFile can only be used with a single -Target.'
 }
 
+if (-not $Version) { $Version = Get-DefaultVersion }
+$Version = $Version -replace '[^\w.+-]', '-'   # same as package.ps1; also keeps -ldflags intact
+
 $built = New-Object System.Collections.Generic.List[string]
 
 Push-Location $goSource
@@ -106,7 +127,7 @@ try {
         $goOS, $goArch = $t -split '-'
         $out = if ($OutFile) { $OutFile } else { Join-Path $goSource $fileNames[$t] }
         $out = $ExecutionContext.SessionState.Path.GetUnresolvedProviderPathFromPSPath($out)
-        Write-Host "Building $goOS/$goArch"
+        Write-Host "Building $goOS/$goArch ($Version)"
         Invoke-GoBuild -GoOS $goOS -GoArch $goArch -OutFile $out
         $built.Add($out)
     }

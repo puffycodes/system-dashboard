@@ -19,20 +19,30 @@ import (
 	"os"
 	"os/signal"
 	"path/filepath"
+	"runtime/debug"
 	"syscall"
 	"time"
 )
+
+// version is set at build time by the build and packaging scripts with
+// -ldflags "-X main.version=<version>". See getVersion for builds without it.
+var version string
 
 func main() {
 	port := flag.Int("port", 8080, "port to listen on")
 	open := flag.Bool("open", true, "open the dashboard in the default browser on start")
 	help := flag.Bool("help", false, "show this help and exit")
+	showVersion := flag.Bool("version", false, "print the version and exit")
 	flag.Usage = usage
 	flag.Parse()
 
 	if *help {
 		flag.CommandLine.SetOutput(os.Stdout)
 		flag.Usage()
+		return
+	}
+	if *showVersion {
+		fmt.Println("system-dashboard", getVersion())
 		return
 	}
 
@@ -99,4 +109,36 @@ Examples:
   %[1]s -port 9000      use a different port
   %[1]s -open=false     don't open the browser
 `, name)
+}
+
+// getVersion returns the version set at build time. Without one, as in a
+// plain "go build", it falls back to the commit Go records in the binary
+// when built inside the git checkout, e.g. "f6ea795" or "f6ea795-dirty".
+func getVersion() string {
+	if version != "" {
+		return version
+	}
+	info, ok := debug.ReadBuildInfo()
+	if !ok {
+		return "dev"
+	}
+	var revision, modified string
+	for _, s := range info.Settings {
+		switch s.Key {
+		case "vcs.revision":
+			revision = s.Value
+		case "vcs.modified":
+			modified = s.Value
+		}
+	}
+	if revision == "" {
+		return "dev"
+	}
+	if len(revision) > 7 {
+		revision = revision[:7]
+	}
+	if modified == "true" {
+		revision += "-dirty"
+	}
+	return revision
 }

@@ -75,7 +75,7 @@ The packaging scripts build everything and put exactly these files in one archiv
 | `system-dashboard-<version>-linux-arm64.tar.gz` | `system-dashboard-linux-arm64` | Linux ARM64 |
 | `SHA256SUMS` | Checksums of the archives | Check a copy with `sha256sum -c SHA256SUMS` |
 
-`<version>` defaults to `git describe --tags --always --dirty`: the latest tag or commit, plus `-dirty` if tracked files have uncommitted changes. Set it with `-Version` / `-v`, and the output folder with `-OutDir` / `-o`. Before building, the scripts run `go vet` and `go test` and stop if either fails. They take files from the working tree, so uncommitted changes are included. `dist/` is git-ignored.
+`<version>` defaults to `git describe --tags --always --dirty`: the latest tag or commit, plus `-dirty` if tracked files have uncommitted changes. The Go binaries print the same version with `-version`. Set it with `-Version` / `-v`, and the output folder with `-OutDir` / `-o`. Before building, the scripts run `go vet` and `go test` and stop if either fails. They take files from the working tree, so uncommitted changes are included. `dist/` is git-ignored.
 
 The `.tar.gz` archives keep the Linux binaries executable, even when packaged on Windows: `tar -xzf system-dashboard-<version>-linux-amd64.tar.gz`, then run `./system-dashboard-linux-amd64`. Zip archives also avoid email filters that block `.exe` attachments.
 

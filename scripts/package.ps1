@@ -21,7 +21,8 @@
     If tracked files have uncommitted changes, the default version ends in "-dirty".
 
 .PARAMETER Version
-    Version used in the archive names. Default: git describe --tags --always --dirty,
+    Version used in the archive names, and reported by the Go binaries with
+    -version. Default: git describe --tags --always --dirty,
     or "dev" outside a git checkout.
 
 .PARAMETER OutDir
@@ -94,7 +95,7 @@ function Invoke-GoBuild {
         $env:GOOS = $GoOS
         $env:GOARCH = $GoArch
         $env:CGO_ENABLED = '0'   # fully static, runs on any Linux distro
-        Invoke-Native "go build ($GoOS/$GoArch)" { go build -trimpath -ldflags '-s -w' -o $OutFile . }
+        Invoke-Native "go build ($GoOS/$GoArch)" { go build -trimpath -ldflags "-s -w -X main.version=$Version" -o $OutFile . }
     } finally {
         foreach ($name in $names) { [Environment]::SetEnvironmentVariable($name, $saved[$name], 'Process') }
     }

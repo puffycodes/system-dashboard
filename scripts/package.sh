@@ -22,7 +22,8 @@
 #  version ends in "-dirty".
 #
 #  Usage:  package.sh [-v version] [-o output_dir] [-n]
-#    -v  Version in the archive names. Default: git describe
+#    -v  Version in the archive names, and reported by the Go
+#        binaries with -version. Default: git describe
 #        --tags --always --dirty, or "dev" outside a git checkout.
 #    -o  Output folder. Default: dist/ at the repo root.
 #    -n  Only package the PowerShell version, so Go isn't needed.
@@ -98,7 +99,7 @@ make_zip() {
 }
 
 go_build() { # <goos> <goarch> <output file>
-    (cd "$REPO/src/go" && CGO_ENABLED=0 GOOS=$1 GOARCH=$2 go build -trimpath -ldflags "-s -w" -o "$3" .)
+    (cd "$REPO/src/go" && CGO_ENABLED=0 GOOS=$1 GOARCH=$2 go build -trimpath -ldflags "-s -w -X main.version=$VERSION" -o "$3" .)
 }
 
 # --- PowerShell version ---------------------------------------------------

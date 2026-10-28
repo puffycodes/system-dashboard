@@ -6,19 +6,23 @@
 #  Builds one binary per target with the same flags as package.sh,
 #  without running the tests or making archives. The web UI is
 #  embedded, so each binary can be copied and run on its own.
-#  Existing files are replaced.
+#  Existing files are replaced. Each binary prints its version with
+#  -version: the -v given, or git describe as in package.sh.
 #
 #    windows-amd64   src/go/system-dashboard.exe
 #    linux-amd64     src/go/system-dashboard-linux-amd64
 #    linux-arm64     src/go/system-dashboard-linux-arm64
 #
-#  Usage:  build.sh [-t target]... [-o output_file]
+#  Usage:  build.sh [-t target]... [-o output_file] [-v version]
 #          build.sh -c
 #    -t  windows-amd64, linux-amd64, linux-arm64 or all. Repeat for
 #        several targets. Default: the Linux binary for this
 #        machine's CPU (linux-arm64 on ARM64, otherwise linux-amd64).
 #    -o  Path of the binary, instead of the default in src/go.
 #        Only with one target.
+#    -v  Version the binaries report with -version. Default: git
+#        describe --tags --always --dirty, or "dev" outside a git
+#        checkout.
 #    -c  Remove the binaries from src/go instead of building. Files
 #        written elsewhere with -o are left alone.
 # ---------------------------------------------------------------
@@ -33,7 +37,7 @@ fi
 set -eu
 
 usage() {
-    echo "Usage: $(basename "$0") [-t target]... [-o output_file]" >&2
+    echo "Usage: $(basename "$0") [-t target]... [-o output_file] [-v version]" >&2
     echo "       $(basename "$0") -c" >&2
     exit 2
 }
@@ -44,8 +48,9 @@ REPO=$(cd "$(dirname "$0")/.." && pwd)
 GO_SRC=$REPO/src/go
 TARGETS=
 OUT_FILE=
+VERSION=
 CLEAN=
-while getopts "t:o:ch" opt; do
+while getopts "t:o:v:ch" opt; do
     case "$opt" in
         t)
             case "$OPTARG" in
@@ -55,6 +60,7 @@ while getopts "t:o:ch" opt; do
             esac
             ;;
         o) OUT_FILE=$OPTARG ;;
+        v) VERSION=$OPTARG ;;
         c) CLEAN=1 ;;
         *) usage ;;
     esac
@@ -75,7 +81,7 @@ file_name() { # <target>
 # --- Clean ----------------------------------------------------------------
 
 if [ -n "$CLEAN" ]; then
-    [ -z "$TARGETS" ] && [ -z "$OUT_FILE" ] || die "-c can't be combined with -t or -o."
+    [ -z "$TARGETS" ] && [ -z "$OUT_FILE" ] && [ -z "$VERSION" ] || die "-c can't be combined with -t, -o or -v."
     removed=0
     for t in $ALL_TARGETS; do
         file=$GO_SRC/$(file_name "$t")
@@ -115,15 +121,20 @@ if [ -n "$OUT_FILE" ]; then
     OUT_FILE=$(cd "$(dirname "$OUT_FILE")" && pwd)/$(basename "$OUT_FILE")
 fi
 
+if [ -z "$VERSION" ]; then
+    VERSION=$(git -C "$REPO" describe --tags --always --dirty 2>/dev/null) || VERSION=dev
+fi
+VERSION=$(printf '%s' "$VERSION" | tr -c 'A-Za-z0-9._+-' '-')   # same as package.sh; also keeps -ldflags intact
+
 BUILT=
 LINUX_BUILT=
 for t in $TARGETS; do
     goos=${t%-*}
     goarch=${t#*-}
     out=${OUT_FILE:-$GO_SRC/$(file_name "$t")}
-    echo "Building $goos/$goarch"
+    echo "Building $goos/$goarch ($VERSION)"
     # Set the target explicitly, so GOOS/GOARCH in the environment don't apply
-    (cd "$GO_SRC" && CGO_ENABLED=0 GOOS=$goos GOARCH=$goarch go build -trimpath -ldflags "-s -w" -o "$out" .)
+    (cd "$GO_SRC" && CGO_ENABLED=0 GOOS=$goos GOARCH=$goarch go build -trimpath -ldflags "-s -w -X main.version=$VERSION" -o "$out" .)
     if [ "$goos" = linux ]; then
         chmod 755 "$out"
         LINUX_BUILT=1

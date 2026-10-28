@@ -19,9 +19,11 @@ In PowerShell, set the variables first, e.g. `$env:CGO_ENABLED='0'; $env:GOOS='l
 
 `-ldflags "-s -w"` strips debug info, giving binaries of about 5 MB. Build output is git-ignored.
 
-On Windows, `scripts\build.ps1` runs the builds above and writes the binaries to this folder, without running the tests. It builds `system-dashboard.exe` by default; pick targets with `-Target linux-amd64`, `-Target windows-amd64, linux-arm64` or `-Target all`, and set the path of a single binary with `-OutFile <path>`. `-Clean` removes the binaries from this folder.
+The version that `-version` prints is set with `-ldflags "-s -w -X main.version=<version>"`. Without it, as in the commands above, the binary reports the commit it was built from, e.g. `f6ea795`, plus `-dirty` if there were uncommitted changes, or `dev` when built outside the git checkout.
 
-On Linux/macOS, `scripts/build.sh` does the same. It builds the Linux binary for the machine's CPU by default; pick targets with `-t linux-amd64`, `-t windows-amd64 -t linux-arm64` or `-t all`, set the path of a single binary with `-o <path>`, and remove the binaries with `-c`.
+On Windows, `scripts\build.ps1` runs the builds above and writes the binaries to this folder, without running the tests. It builds `system-dashboard.exe` by default; pick targets with `-Target linux-amd64`, `-Target windows-amd64, linux-arm64` or `-Target all`, set the path of a single binary with `-OutFile <path>`, and set the version with `-Version <version>` (default: `git describe --tags --always --dirty`, as in the packaging scripts). `-Clean` removes the binaries from this folder.
+
+On Linux/macOS, `scripts/build.sh` does the same. It builds the Linux binary for the machine's CPU by default; pick targets with `-t linux-amd64`, `-t windows-amd64 -t linux-arm64` or `-t all`, set the path of a single binary with `-o <path>`, set the version with `-v <version>`, and remove the binaries with `-c`.
 
 To build all three targets and package them for copying to other machines, use the packaging scripts instead: `scripts\package.ps1` on Windows or `scripts/package.sh` on Linux/macOS. They also run `go vet` and `go test` first. See [Packaging](../../README.md#packaging) in the root README. The scripts repeat the targets and build flags above, so if you change those, update `scripts/package.ps1`, `scripts/package.sh`, `scripts/build.ps1` and `scripts/build.sh` too.
 
@@ -50,6 +52,7 @@ Options (same on both):
 -port 9000       # different port (default 8080)
 -open=false      # don't try to open a browser
 -help            # show the options and exit (-h works too)
+-version         # print the version and exit
 ```
 
 Press Ctrl+C to stop the server. On Linux, SIGTERM (`kill`, systemd) also stops it cleanly.
