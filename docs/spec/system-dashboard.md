@@ -61,6 +61,9 @@ A local web dashboard showing information about the machine it runs on.
     - Searches the local disks only, like list_executables by default.
     - Category checkboxes: Executables, Dynamic Libraries, Scripts, Installers, Others.
         - Default: Executables only, as in list_executables.
+        - An "All" checkbox before them selects or clears all five at once.
+            - It is ticked when all five are ticked, and shown as partly ticked when only some are.
+            - Ticking or clearing a category updates it.
         - Changing them takes effect on the next Scan.
     - Read only when asked: nothing is searched until the Scan button is pressed, because a full search can take minutes.
         - While scanning, show a message with the elapsed time, and disable Scan and Download.
@@ -120,7 +123,7 @@ The page gets its data from a JSON API on the same server.
     }
     ```
 
-    - `categories` takes the same names as list_executables' `-c` option (`executable`, `library`, `script`, `installer`, `other`), separated by commas. Default: `executable`. An unknown name returns `400` with `{ "error": "<message>" }`.
+    - `categories` takes the same names as list_executables' `-c` option (`executable`, `library`, `script`, `installer`, `other`, or `all` for every category), separated by commas. Default: `executable`. An unknown name returns `400` with `{ "error": "<message>" }`.
     - The response's `categories` lists the categories that were searched.
     - `generatedAt` is an ISO 8601 timestamp of when the list was read, in local time with its time-zone offset.
     - `items` is always an array, even when empty, with the same fields and order as list_executables.
