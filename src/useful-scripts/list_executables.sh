@@ -11,7 +11,10 @@
 #                can't be read)
 #    Library     a dynamic library: a regular file named *.so or
 #                *.so.*, whatever its permissions
-#    Other       any other file with an execute bit, such as scripts
+#    Script      a file with an execute bit that starts with "#!"
+#    Installer   a package or installer: a regular file named *.deb,
+#                *.rpm or *.run, whatever its permissions
+#    Other       any other file with an execute bit
 #  Executables and libraries are listed by default; choose with -c.
 #
 #  Local disks are the filesystems on a /dev/ block device, plus
@@ -26,7 +29,7 @@
 #    -a  Also search network and other mounted filesystems, except
 #        virtual ones such as /proc and /sys.
 #    -c  Comma-separated categories to list: executable, library,
-#        other, or all. Default: executable,library.
+#        script, installer, other, or all. Default: executable,library.
 #    -p  Search this folder instead of the local disks (repeatable).
 #        It is searched without crossing into other filesystems.
 # ---------------------------------------------------------------
@@ -76,18 +79,25 @@ case "$FORMAT" in
     *) echo "Invalid format: $FORMAT" >&2; usage ;;
 esac
 
-# WANT_EXE, WANT_LIB and WANT_OTHER are 1 for each category to list
-WANT_EXE=0; WANT_LIB=0; WANT_OTHER=0
+# The categories to list, as " Executable Library ... " (a space before and
+# after each, so a category can be matched as " <name> ")
+WANT=" "
 for c in $(printf '%s' "$CATEGORIES" | tr ',' ' '); do
     case "$c" in
-        executable) WANT_EXE=1 ;;
-        library) WANT_LIB=1 ;;
-        other) WANT_OTHER=1 ;;
-        all) WANT_EXE=1; WANT_LIB=1; WANT_OTHER=1 ;;
+        executable) WANT="$WANT Executable " ;;
+        library) WANT="$WANT Library " ;;
+        script) WANT="$WANT Script " ;;
+        installer) WANT="$WANT Installer " ;;
+        other) WANT="$WANT Other " ;;
+        all) WANT=" Executable Library Script Installer Other " ;;
         *) echo "Invalid category: $c" >&2; usage ;;
     esac
 done
-[ $((WANT_EXE + WANT_LIB + WANT_OTHER)) -gt 0 ] || { echo "No category given" >&2; usage; }
+[ "$WANT" != " " ] || { echo "No category given" >&2; usage; }
+
+wants() {
+    case "$WANT" in *" $1 "*) return 0 ;; *) return 1 ;; esac
+}
 
 # Prints the mount points to search, one per line, from /proc/self/mountinfo.
 # A filesystem mounted more than once (e.g. bind mounts) is listed once.
@@ -122,19 +132,23 @@ mount_points() {
 NOW_ZONE=$(date +%z)
 
 # Prints "size modified path" for the files under folder $1 that may be in
-# the chosen categories: libraries by name (they often have no execute bit),
-# and other files by their execute bits
+# the chosen categories: libraries and installers by name (they often have
+# no execute bit), and other files by their execute bits
 find_files() {
-    if [ "$WANT_LIB" -eq 0 ]; then
-        find "$1" -xdev -type f \( -perm -u=x -o -perm -g=x -o -perm -o=x \) \
-            ! -name '*.so' ! -name '*.so.*' -exec stat -c '%s %y %n' {} +
-    elif [ $((WANT_EXE + WANT_OTHER)) -eq 0 ]; then
-        find "$1" -xdev -type f \( -name '*.so' -o -name '*.so.*' \) \
-            -exec stat -c '%s %y %n' {} +
-    else
-        find "$1" -xdev -type f \( -perm -u=x -o -perm -g=x -o -perm -o=x \
-            -o -name '*.so' -o -name '*.so.*' \) -exec stat -c '%s %y %n' {} +
+    set -- "$1" -xdev -type f \(
+    or=
+    if wants Library; then
+        set -- "$@" -name '*.so' -o -name '*.so.*'
+        or=-o
     fi
+    if wants Installer; then
+        set -- "$@" $or -name '*.deb' -o -name '*.rpm' -o -name '*.run'
+        or=-o
+    fi
+    if wants Executable || wants Script || wants Other; then
+        set -- "$@" $or -perm -u=x -o -perm -g=x -o -perm -o=x
+    fi
+    find "$@" \) -exec stat -c '%s %y %n' {} +
 }
 
 # Each file as "name<TAB>directory<TAB>size<TAB>modified<TAB>category",
@@ -143,8 +157,7 @@ find_files() {
 # YYYY-MM-DDTHH:MM:SS+ZZ:ZZ.
 while IFS= read -r root; do
     find_files "$root" 2>/dev/null || true
-done <"$ROOTS" | LC_ALL=C awk -v OFS="$TAB" -v now_zone="$NOW_ZONE" \
-    -v want_exe="$WANT_EXE" -v want_lib="$WANT_LIB" -v want_other="$WANT_OTHER" '
+done <"$ROOTS" | LC_ALL=C awk -v OFS="$TAB" -v now_zone="$NOW_ZONE" -v want="$WANT" '
     {
         size = $1; date = $2; time = $3
         path = $0; sub(/^[^ ]+ [^ ]+ [^ ]+ /, "", path)
@@ -159,20 +172,20 @@ done <"$ROOTS" | LC_ALL=C awk -v OFS="$TAB" -v now_zone="$NOW_ZONE" \
         dir = path; sub(/\/[^\/]*$/, "", dir)
         if (dir == "") dir = "/"
         if (name ~ /\.so(\.|$)/) {
-            if (!want_lib) next
             category = "Library"
+        } else if (name ~ /\.(deb|rpm|run)$/) {
+            category = "Installer"
         } else {
-            # An ELF program starts with "\177ELF". A file that cannot be
-            # read is most likely a program too.
+            # An ELF program starts with "\177ELF" and a script with "#!".
+            # A file that cannot be read is most likely a program.
             first = ""
             status = (getline first < path)
             close(path)
             if (status < 0 || substr(first, 1, 4) == "\177ELF") category = "Executable"
+            else if (substr(first, 1, 2) == "#!") category = "Script"
             else category = "Other"
-            if (category == "Executable" && !want_exe) next
-            if (category == "Other" && !want_other) next
         }
-        print name, dir, size, date "T" time zone, category
+        if (index(want, " " category " ")) print name, dir, size, date "T" time zone, category
     }
 ' | LC_ALL=C sort -t "$TAB" -k2,2 -k1,1 -u >"$TMPFILE"
 

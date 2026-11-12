@@ -9,7 +9,9 @@
 
       Executable   Programs: .exe .com .scr
       Library      Dynamic libraries: .dll .ocx
-      Other        Scripts and installers: .bat .cmd .ps1 .vbs .js .wsf .msi .msp
+      Script       .bat .cmd .ps1 .vbs .vbe .js .jse .wsf .wsh
+      Installer    .msi .msp .msix .msixbundle .appx .appxbundle
+      Other        Any other extension in PATHEXT, such as .msc and .cpl
 
     Executables and libraries are listed by default; choose others with
     -Category. Folders that can't be read are skipped, so run it as
@@ -31,15 +33,15 @@
     the local (fixed) ones. Ignored with -Path.
 
 .PARAMETER Category
-    The categories to list: Executable, Library and/or Other.
-    Default: Executable, Library
+    The categories to list: any of Executable, Library, Script, Installer
+    and Other. Default: Executable, Library
 
 .EXAMPLE
     .\list_executables.ps1
     .\list_executables.ps1 -Format csv -OutFile executables.csv
     .\list_executables.ps1 -Path 'C:\Program Files', D:\Tools
-    .\list_executables.ps1 -Category Executable, Library, Other
-    .\list_executables.ps1 -Category Other
+    .\list_executables.ps1 -Category Executable, Library, Script, Installer, Other
+    .\list_executables.ps1 -Category Script
 #>
 [CmdletBinding()]
 param(
@@ -52,7 +54,7 @@ param(
 
     [switch]$AllDrives,
 
-    [ValidateSet('Executable', 'Library', 'Other')]
+    [ValidateSet('Executable', 'Library', 'Script', 'Installer', 'Other')]
     [string[]]$Category = @('Executable', 'Library')
 )
 
@@ -68,7 +70,12 @@ if (-not $Path) {
 $categories = @{}
 foreach ($ext in '.exe', '.com', '.scr') { $categories[$ext] = 'Executable' }
 foreach ($ext in '.dll', '.ocx') { $categories[$ext] = 'Library' }
-foreach ($ext in '.bat', '.cmd', '.ps1', '.vbs', '.js', '.wsf', '.msi', '.msp') { $categories[$ext] = 'Other' }
+foreach ($ext in '.bat', '.cmd', '.ps1', '.vbs', '.vbe', '.js', '.jse', '.wsf', '.wsh') { $categories[$ext] = 'Script' }
+foreach ($ext in '.msi', '.msp', '.msix', '.msixbundle', '.appx', '.appxbundle') { $categories[$ext] = 'Installer' }
+# Other: whatever else Windows runs without its extension being typed
+foreach ($ext in "$env:PATHEXT".Split(';')) {
+    if ($ext -match '^\.\w+$' -and -not $categories.ContainsKey($ext)) { $categories[$ext.ToLowerInvariant()] = 'Other' }
+}
 
 # Only the extensions of the chosen categories are listed
 $wanted = @{}

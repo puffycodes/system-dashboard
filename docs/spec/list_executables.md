@@ -7,6 +7,8 @@
         - Category
             - Executables
             - Dynamic Libraries
+            - Scripts
+            - Installers
             - Others
         - Option to include each of the categories
             - Default: Executables and Dynamic Libraries
