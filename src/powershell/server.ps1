@@ -102,7 +102,8 @@ function Send-Response {
     $Response.Headers['Cache-Control'] = 'no-store'
     if ($Body) {
         $Response.ContentLength64 = $Body.Length
-        $Response.OutputStream.Write($Body, 0, $Body.Length)
+        # A HEAD response has the headers of the GET response, but no body
+        if (-not $script:isHeadRequest) { $Response.OutputStream.Write($Body, 0, $Body.Length) }
     }
     $Response.Close()
 }
@@ -174,7 +175,8 @@ function Invoke-Request {
     $path = $request.Url.AbsolutePath
 
     try {
-        if ($request.HttpMethod -ne 'GET') {
+        $script:isHeadRequest = $request.HttpMethod -eq 'HEAD'
+        if ($request.HttpMethod -ne 'GET' -and -not $script:isHeadRequest) {
             Send-Text $response 405 'Method not allowed'
         } elseif ($path -eq '/api/software') {
             Send-Json $response ([ordered]@{

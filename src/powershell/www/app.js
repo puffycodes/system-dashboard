@@ -148,13 +148,9 @@ const executables = {
     time: document.getElementById('executables-time'),
     status: document.getElementById('executables-status'),
     body: document.getElementById('executables-body'),
-    more: document.getElementById('executables-more'),
     headers: document.querySelectorAll('#panel-executables th[data-sort]'),
   },
 };
-
-// Building more rows than this makes the page slow; the filter finds the rest
-const maxExecutableRows = 5000;
 
 const categoryLabels = {
   Executable: 'Executables',
@@ -249,7 +245,7 @@ function renderExecutables() {
 
   // Build rows with textContent so names are never interpreted as HTML
   const fragment = document.createDocumentFragment();
-  for (const item of rows.slice(0, maxExecutableRows)) {
+  for (const item of rows) {
     const tr = document.createElement('tr');
     const cells = [
       [item.Name], [item.Directory], [item.Size.toLocaleString(), 'num'], [item.Modified, 'nowrap'], [item.Category],
@@ -263,10 +259,6 @@ function renderExecutables() {
     fragment.appendChild(tr);
   }
   els.body.replaceChildren(fragment);
-
-  els.more.hidden = rows.length <= maxExecutableRows;
-  els.more.textContent = `Showing the first ${maxExecutableRows.toLocaleString()} of ` +
-    `${rows.length.toLocaleString()} files. Use the filter to find the others, or download the whole list.`;
 
   els.count.textContent = query
     ? `${rows.length} of ${executables.items.length}`

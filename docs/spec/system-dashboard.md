@@ -124,6 +124,8 @@ The page gets its data from a JSON API on the same server.
     ```
 
     - `categories` takes the same names as list_executables' `-c` option (`executable`, `library`, `script`, `installer`, `other`, or `all` for every category), separated by commas. Default: `executable`. An unknown name returns `400` with `{ "error": "<message>" }`.
+        - Names are case-sensitive, as with `-c`: `Executable` is an unknown name.
+        - An empty list (e.g. `?categories=`) also returns `400`, as `-c` with no names is an error.
     - The response's `categories` lists the categories that were searched.
     - `generatedAt` is an ISO 8601 timestamp of when the list was read, in local time with its time-zone offset.
     - `items` is always an array, even when empty, with the same fields and order as list_executables.
