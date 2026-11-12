@@ -69,9 +69,9 @@ go test ./...
 
 Tests run for the OS you're on:
 
-- **Both OSes:** the routes (static files, content types, the API, error statuses), using a stub software list.
-- **Windows:** the registry read and de-duplication.
-- **Linux:** the parsers for each package manager's output, using sample output, plus a live read of whatever package manager is present.
+- **Both OSes:** the routes (static files, content types, the API, error statuses, the `categories` parameter), using stub software and executables lists, and the executables' sorting.
+- **Windows:** the registry read and de-duplication; the extension categories, including `PATHEXT`; the fixed drives; and the `Sort-Object` comparison.
+- **Linux:** the parsers for each package manager's output, using sample output, plus a live read of whatever package manager is present; the executables' categories on sample files; and the mount points.
 
 To check vet on the other OS without running tests: `GOOS=linux go vet ./...`. To run the Linux tests from Windows, build a test binary and run it in WSL:
 
