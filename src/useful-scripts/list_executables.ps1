@@ -13,8 +13,7 @@
       Installer    .msi .msp .msix .msixbundle .appx .appxbundle
       Other        Any other extension in PATHEXT, such as .msc and .cpl
 
-    Executables and libraries are listed by default; choose others with
-    -Category. Folders that can't be read are skipped, so run it as
+    Only executables are listed by default; choose others with -Category. Folders that can't be read are skipped, so run it as
     administrator to see everything. Junctions and symbolic links to folders
     are not followed, so no folder is searched twice.
     See docs/spec/list_executables.md.
@@ -34,13 +33,14 @@
 
 .PARAMETER Category
     The categories to list: any of Executable, Library, Script, Installer
-    and Other. Default: Executable, Library
+    and Other. Default: Executable
 
 .EXAMPLE
     .\list_executables.ps1
     .\list_executables.ps1 -Format csv -OutFile executables.csv
     .\list_executables.ps1 -Path 'C:\Program Files', D:\Tools
     .\list_executables.ps1 -Category Executable, Library, Script, Installer, Other
+    .\list_executables.ps1 -Category Executable, Library
     .\list_executables.ps1 -Category Script
 #>
 [CmdletBinding()]
@@ -55,7 +55,7 @@ param(
     [switch]$AllDrives,
 
     [ValidateSet('Executable', 'Library', 'Script', 'Installer', 'Other')]
-    [string[]]$Category = @('Executable', 'Library')
+    [string[]]$Category = @('Executable')
 )
 
 $ErrorActionPreference = 'Stop'

@@ -141,7 +141,7 @@ In text, csv and html, multiple IP addresses are separated by `, `. In json, `IP
 
 ## List executables
 
-Scripts that list the executable files on a machine's local disks, with each file's name, directory, size, last modified time and category. By default they list programs and dynamic libraries; scripts, installers and other executable files are listed only when you ask for them.
+Scripts that list the executable files on a machine's local disks, with each file's name, directory, size, last modified time and category. By default they list only programs; dynamic libraries, scripts, installers and other executable files are listed when you ask for them.
 Requirements: [docs/spec/list_executables.md](../../docs/spec/list_executables.md).
 
 | Script | Platform | Output formats | Default output |
@@ -163,7 +163,7 @@ Searching whole disks takes a while, often several minutes on Windows. Folders t
 | `-OutFile` | *(stdout)* | File to write to (UTF-8). If omitted, output is printed. |
 | `-Path` | *(local drives)* | Folders to search instead of the local drives. |
 | `-AllDrives` | *(off)* | Also search removable, network and other drives that are ready. Ignored with `-Path`. |
-| `-Category` | `Executable, Library` | The [categories](#categories) to list: any of `Executable`, `Library`, `Script`, `Installer` and `Other`. |
+| `-Category` | `Executable` | The [categories](#categories) to list: any of `Executable`, `Library`, `Script`, `Installer` and `Other`. |
 
 Examples:
 
@@ -171,6 +171,7 @@ Examples:
 .\list_executables.ps1 -Format csv -OutFile executables.csv
 .\list_executables.ps1 -Path 'C:\Program Files', D:\Tools
 .\list_executables.ps1 -Category Executable, Library, Script, Installer, Other -Format json -OutFile executables.json
+.\list_executables.ps1 -Category Executable, Library
 .\list_executables.ps1 -Category Script, Installer
 ```
 
@@ -187,7 +188,7 @@ sh list_executables.sh [-f text|csv|json|html] [-o output_file] [-a] [-c categor
 | `-f` | `text` | Output format: `text`, `csv`, `json` or `html`. |
 | `-o` | *(stdout)* | File to write to. If omitted, output is printed. |
 | `-a` | | Also search network and other mounted filesystems, except virtual ones such as `/proc` and `/sys`. |
-| `-c` | `executable,library` | The [categories](#categories) to list, separated by commas: any of `executable`, `library`, `script`, `installer` and `other`, or `all`. |
+| `-c` | `executable` | The [categories](#categories) to list, separated by commas: any of `executable`, `library`, `script`, `installer` and `other`, or `all`. |
 | `-p` | *(local disks)* | Search this folder instead of the local disks. Repeat it for more folders. |
 | `-h` | | Show usage. |
 
@@ -197,6 +198,7 @@ Examples:
 sudo sh list_executables.sh -f csv -o executables.csv
 sh list_executables.sh -p /usr/local/bin -p /opt
 sh list_executables.sh -c all -f json -o executables.json
+sh list_executables.sh -c executable,library
 sh list_executables.sh -c script,installer
 ```
 
@@ -214,7 +216,7 @@ Each file listed is in one category, shown in its `Category` field:
 | `Installer` | `.msi`, `.msp`, `.msix`, `.msixbundle`, `.appx`, `.appxbundle` | A package or installer: a file named `*.deb`, `*.rpm` or `*.run`, with or without an execute bit |
 | `Other` | Any other extension in `PATHEXT`, such as `.msc` and `.cpl` | Any other file with an execute bit |
 
-`Executable` and `Library` are listed by default. On Linux, `Other` is mostly data files that happen to have an execute bit. On Windows, `PATHEXT` is the list of extensions Windows runs without them being typed; if you add one (e.g. `.py`), its files become `Other`.
+Only `Executable` is listed by default. On Linux, `Other` is mostly data files that happen to have an execute bit. On Windows, `PATHEXT` is the list of extensions Windows runs without them being typed; if you add one (e.g. `.py`), its files become `Other`.
 
 ### What is searched
 

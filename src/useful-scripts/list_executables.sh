@@ -15,7 +15,7 @@
 #    Installer   a package or installer: a regular file named *.deb,
 #                *.rpm or *.run, whatever its permissions
 #    Other       any other file with an execute bit
-#  Executables and libraries are listed by default; choose with -c.
+#  Only executables are listed by default; choose others with -c.
 #
 #  Local disks are the filesystems on a /dev/ block device, plus
 #  ZFS: network mounts, tmpfs and virtual filesystems such as /proc
@@ -29,7 +29,7 @@
 #    -a  Also search network and other mounted filesystems, except
 #        virtual ones such as /proc and /sys.
 #    -c  Comma-separated categories to list: executable, library,
-#        script, installer, other, or all. Default: executable,library.
+#        script, installer, other, or all. Default: executable.
 #    -p  Search this folder instead of the local disks (repeatable).
 #        It is searched without crossing into other filesystems.
 # ---------------------------------------------------------------
@@ -56,7 +56,7 @@ trap 'rm -f "$ROOTS" "$TMPFILE"' EXIT INT TERM
 FORMAT=text
 OUT=
 ALL=0
-CATEGORIES=executable,library
+CATEGORIES=executable
 while getopts "f:o:ac:p:h" opt; do
     case "$opt" in
         f) FORMAT=$OPTARG ;;

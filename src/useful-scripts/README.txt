@@ -191,8 +191,8 @@ LIST EXECUTABLES
 
 Scripts that list the executable files on a machine's local disks, with each
 file's name, directory, size, last modified time and category. By default
-they list programs and dynamic libraries; scripts, installers and other
-executable files are listed only when you ask for them.
+they list only programs; dynamic libraries, scripts, installers and other
+executable files are listed when you ask for them.
 Requirements: ../../docs/spec/list_executables.md
 
   Script                 Platform                    Formats                 Default output
@@ -219,13 +219,14 @@ POWERSHELL (WINDOWS)
                ready. Ignored with -Path.
   -Category    The categories to list (see CATEGORIES): any of Executable,
                Library, Script, Installer and Other.
-               Default: Executable, Library
+               Default: Executable
 
 Examples:
 
   .\list_executables.ps1 -Format csv -OutFile executables.csv
   .\list_executables.ps1 -Path 'C:\Program Files', D:\Tools
   .\list_executables.ps1 -Category Executable, Library, Script, Installer, Other -Format json -OutFile executables.json
+  .\list_executables.ps1 -Category Executable, Library
   .\list_executables.ps1 -Category Script, Installer
 
 Help: Get-Help .\list_executables.ps1 -Full
@@ -242,7 +243,7 @@ SH (LINUX)
        ones such as /proc and /sys.
   -c   The categories to list (see CATEGORIES), separated by commas: any of
        executable, library, script, installer and other, or all.
-       Default: executable,library
+       Default: executable
   -p   Search this folder instead of the local disks. Repeat it for more
        folders.
   -h   Show usage.
@@ -252,6 +253,7 @@ Examples:
   sudo sh list_executables.sh -f csv -o executables.csv
   sh list_executables.sh -p /usr/local/bin -p /opt
   sh list_executables.sh -c all -f json -o executables.json
+  sh list_executables.sh -c executable,library
   sh list_executables.sh -c script,installer
 
 Like list_installed_software.sh, it refuses to be sourced. It works with GNU
@@ -278,10 +280,10 @@ Each file listed is in one category, shown in its Category field.
                .cpl
                Linux: any other file with an execute bit
 
-Executable and Library are listed by default. On Linux, Other is mostly
-data files that happen to have an execute bit. On Windows, PATHEXT is the
-list of extensions Windows runs without them being typed; if you add one
-(e.g. .py), its files become Other.
+Only Executable is listed by default. On Linux, Other is mostly data files
+that happen to have an execute bit. On Windows, PATHEXT is the list of
+extensions Windows runs without them being typed; if you add one (e.g.
+.py), its files become Other.
 
 
 WHAT IS SEARCHED

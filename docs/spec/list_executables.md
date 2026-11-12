@@ -11,7 +11,7 @@
             - Installers
             - Others
         - Option to include each of the categories
-            - Default: Executables and Dynamic Libraries
+            - Default: Executables Only
     - Output Fields:
         - File Name
         - Directory that the File is in
