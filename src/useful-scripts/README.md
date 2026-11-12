@@ -13,7 +13,7 @@ On Windows, use the PowerShell script. It implements the full spec and handles s
 
 The examples below are run from this folder (`src/useful-scripts/`).
 
-The dashboards reproduce these scripts' lists entry for entry: [`src/powershell/`](../powershell/) and [`src/go/`](../go/) on Windows match the `.ps1` script, and `src/go/` on Linux matches the `.sh` script. If you change what a script lists, update the dashboards to match.
+The dashboards reproduce these scripts' lists entry for entry: [`src/powershell/`](../powershell/) and [`src/go/`](../go/) on Windows match the `.ps1` script, and `src/go/` on Linux matches the `.sh` script. If you change what a script lists, update the dashboards to match. The dashboards' Download button also writes the same text, csv, json and html files as the `.sh` script, built by `downloadFormats` in `www/app.js`. If you change an output format, change it there too, in both UI copies.
 
 ## PowerShell (Windows)
 

@@ -22,6 +22,10 @@ The dashboards reproduce these scripts' lists entry for entry: src/powershell/
 and src/go/ on Windows match the .ps1 script, and src/go/ on Linux matches the
 .sh script. If you change what a script lists, update the dashboards to match.
 
+The dashboards' Download button also writes the same text, csv, json and
+html files as the .sh script, built by downloadFormats in www/app.js. If you
+change an output format, change it there too, in both UI copies.
+
 
 POWERSHELL (WINDOWS)
 --------------------

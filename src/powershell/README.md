@@ -48,6 +48,7 @@ Errors come back as `{ "error": "..." }` with a 404 or 500 status.
 - **UI:** `src/go/www/` is a copy of `www/`. When you change the UI, change both copies, or copy one over the other.
 - **Software list:** `Get-InstalledSoftware` and `src/go/software_windows.go` use the same registry keys and filtering as [`list_installed_software.ps1`](../useful-scripts/list_installed_software.ps1). If you change one, change the others to match.
 - **IP addresses:** `Get-IPAddress` and `ipAddresses` in `src/go/server.go` skip the same addresses as [`list_installed_software.ps1`](../useful-scripts/list_installed_software.ps1) and `.sh`. If you change one, change the others to match.
+- **Download formats:** `downloadFormats` in `www/app.js` writes the same files as [`list_installed_software.sh`](../useful-scripts/list_installed_software.sh). If you change a script's output format, change it there too.
 
 ## Adding a panel
 

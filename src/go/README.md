@@ -111,6 +111,7 @@ The software lists match the other implementations entry for entry:
 
 - **UI:** `go:embed` can't reach files outside this folder, so `www/` is a copy of `src/powershell/www/`. When you change the UI, change both copies, or copy one over the other.
 - **Software lists:** if you change what the `.ps1` or `.sh` script lists, change `software_windows.go` or `software_linux.go` to match.
+- **Download formats:** `downloadFormats` in `www/app.js` writes the same files as [`list_installed_software.sh`](../useful-scripts/list_installed_software.sh). If you change a script's output format, change it there too.
 - **IP addresses:** `ipAddresses` in `server.go` skips the same addresses as the `.ps1` and `.sh` scripts and `Get-IPAddress` in the PowerShell version: loopback and link-local. Like the scripts, it counts only interfaces that are up on Windows, and every interface on Linux. If you change one, change the others to match.
 
 ## Adding a panel
