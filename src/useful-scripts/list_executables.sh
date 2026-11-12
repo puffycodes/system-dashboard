@@ -5,21 +5,28 @@
 #  directory, size, last modified time and category).
 #  See docs/spec/list_executables.md.
 #
-#  An executable is a regular file with any execute permission bit
-#  set: a Script if it starts with "#!", otherwise an Executable.
-#  Dynamic libraries (*.so and *.so.*) are left out unless -l is given,
-#  and are then listed as Library whatever their permissions. Local disks are the filesystems on a /dev/ block device, plus
+#  Each file is in one category:
+#    Executable  an ELF program: a regular file with any execute
+#                permission bit set that starts with "\177ELF" (or
+#                can't be read)
+#    Library     a dynamic library: a regular file named *.so or
+#                *.so.*, whatever its permissions
+#    Other       any other file with an execute bit, such as scripts
+#  Executables and libraries are listed by default; choose with -c.
+#
+#  Local disks are the filesystems on a /dev/ block device, plus
 #  ZFS: network mounts, tmpfs and virtual filesystems such as /proc
 #  are left out. Each filesystem is searched once, without crossing
 #  into others. Folders that can't be read are skipped, so run it as
 #  root to see everything.
 #
-#  Usage:  list_executables.sh [-f text|csv|json|html] [-o output_file] [-a] [-l] [-p folder]...
+#  Usage:  list_executables.sh [-f text|csv|json|html] [-o output_file] [-a] [-c categories] [-p folder]...
 #    -f  Output format. Default: text.
 #    -o  File to write to. Default: stdout.
 #    -a  Also search network and other mounted filesystems, except
 #        virtual ones such as /proc and /sys.
-#    -l  Also list dynamic libraries.
+#    -c  Comma-separated categories to list: executable, library,
+#        other, or all. Default: executable,library.
 #    -p  Search this folder instead of the local disks (repeatable).
 #        It is searched without crossing into other filesystems.
 # ---------------------------------------------------------------
@@ -34,7 +41,7 @@ fi
 set -eu
 
 usage() {
-    echo "Usage: $(basename "$0") [-f text|csv|json|html] [-o output_file] [-a] [-l] [-p folder]..." >&2
+    echo "Usage: $(basename "$0") [-f text|csv|json|html] [-o output_file] [-a] [-c categories] [-p folder]..." >&2
     exit 2
 }
 
@@ -46,13 +53,13 @@ trap 'rm -f "$ROOTS" "$TMPFILE"' EXIT INT TERM
 FORMAT=text
 OUT=
 ALL=0
-LIBS=0
-while getopts "f:o:alp:h" opt; do
+CATEGORIES=executable,library
+while getopts "f:o:ac:p:h" opt; do
     case "$opt" in
         f) FORMAT=$OPTARG ;;
         o) OUT=$OPTARG ;;
         a) ALL=1 ;;
-        l) LIBS=1 ;;
+        c) CATEGORIES=$OPTARG ;;
         p)
             # Absolute, so the Directory column is too
             dir=$(cd "$OPTARG" 2>/dev/null && pwd) || { echo "Not a folder: $OPTARG" >&2; exit 2; }
@@ -68,6 +75,19 @@ case "$FORMAT" in
     text|csv|json|html) ;;
     *) echo "Invalid format: $FORMAT" >&2; usage ;;
 esac
+
+# WANT_EXE, WANT_LIB and WANT_OTHER are 1 for each category to list
+WANT_EXE=0; WANT_LIB=0; WANT_OTHER=0
+for c in $(printf '%s' "$CATEGORIES" | tr ',' ' '); do
+    case "$c" in
+        executable) WANT_EXE=1 ;;
+        library) WANT_LIB=1 ;;
+        other) WANT_OTHER=1 ;;
+        all) WANT_EXE=1; WANT_LIB=1; WANT_OTHER=1 ;;
+        *) echo "Invalid category: $c" >&2; usage ;;
+    esac
+done
+[ $((WANT_EXE + WANT_LIB + WANT_OTHER)) -gt 0 ] || { echo "No category given" >&2; usage; }
 
 # Prints the mount points to search, one per line, from /proc/self/mountinfo.
 # A filesystem mounted more than once (e.g. bind mounts) is listed once.
@@ -101,15 +121,19 @@ mount_points() {
 # (it can be an hour off for files dated on the other side of a DST change)
 NOW_ZONE=$(date +%z)
 
-# Prints "size modified path" for the executables under folder $1, plus the
-# dynamic libraries with -l (they often have no execute bit)
+# Prints "size modified path" for the files under folder $1 that may be in
+# the chosen categories: libraries by name (they often have no execute bit),
+# and other files by their execute bits
 find_files() {
-    if [ "$LIBS" -eq 1 ]; then
-        find "$1" -xdev -type f \( -perm -u=x -o -perm -g=x -o -perm -o=x \
-            -o -name '*.so' -o -name '*.so.*' \) -exec stat -c '%s %y %n' {} +
-    else
+    if [ "$WANT_LIB" -eq 0 ]; then
         find "$1" -xdev -type f \( -perm -u=x -o -perm -g=x -o -perm -o=x \) \
             ! -name '*.so' ! -name '*.so.*' -exec stat -c '%s %y %n' {} +
+    elif [ $((WANT_EXE + WANT_OTHER)) -eq 0 ]; then
+        find "$1" -xdev -type f \( -name '*.so' -o -name '*.so.*' \) \
+            -exec stat -c '%s %y %n' {} +
+    else
+        find "$1" -xdev -type f \( -perm -u=x -o -perm -g=x -o -perm -o=x \
+            -o -name '*.so' -o -name '*.so.*' \) -exec stat -c '%s %y %n' {} +
     fi
 }
 
@@ -119,7 +143,8 @@ find_files() {
 # YYYY-MM-DDTHH:MM:SS+ZZ:ZZ.
 while IFS= read -r root; do
     find_files "$root" 2>/dev/null || true
-done <"$ROOTS" | LC_ALL=C awk -v OFS="$TAB" -v now_zone="$NOW_ZONE" '
+done <"$ROOTS" | LC_ALL=C awk -v OFS="$TAB" -v now_zone="$NOW_ZONE" \
+    -v want_exe="$WANT_EXE" -v want_lib="$WANT_LIB" -v want_other="$WANT_OTHER" '
     {
         size = $1; date = $2; time = $3
         path = $0; sub(/^[^ ]+ [^ ]+ [^ ]+ /, "", path)
@@ -134,13 +159,18 @@ done <"$ROOTS" | LC_ALL=C awk -v OFS="$TAB" -v now_zone="$NOW_ZONE" '
         dir = path; sub(/\/[^\/]*$/, "", dir)
         if (dir == "") dir = "/"
         if (name ~ /\.so(\.|$)/) {
+            if (!want_lib) next
             category = "Library"
         } else {
-            # A script starts with "#!"; an unreadable file counts as a program
+            # An ELF program starts with "\177ELF". A file that cannot be
+            # read is most likely a program too.
             first = ""
-            if ((getline first < path) > 0 && substr(first, 1, 2) == "#!") category = "Script"
-            else category = "Executable"
+            status = (getline first < path)
             close(path)
+            if (status < 0 || substr(first, 1, 4) == "\177ELF") category = "Executable"
+            else category = "Other"
+            if (category == "Executable" && !want_exe) next
+            if (category == "Other" && !want_other) next
         }
         print name, dir, size, date "T" time zone, category
     }

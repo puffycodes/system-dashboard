@@ -4,13 +4,17 @@
     last modified time and category).
 
 .DESCRIPTION
-    Searches every fixed (local) drive for files with an executable extension.
-    Each file's category comes from its extension: Executable (.exe .com .scr),
-    Script (.bat .cmd .ps1 .vbs .js .wsf), Installer (.msi .msp) or Library
-    (.dll .ocx). Other extensions given with -Extension are Other.
-    Folders that can't be read are skipped, so run it as administrator to see
-    everything. Junctions and symbolic links to folders are not followed, so
-    no folder is searched twice.
+    Searches every fixed (local) drive for executable files. Each file's
+    category comes from its extension:
+
+      Executable   Programs: .exe .com .scr
+      Library      Dynamic libraries: .dll .ocx
+      Other        Scripts and installers: .bat .cmd .ps1 .vbs .js .wsf .msi .msp
+
+    Executables and libraries are listed by default; choose others with
+    -Category. Folders that can't be read are skipped, so run it as
+    administrator to see everything. Junctions and symbolic links to folders
+    are not followed, so no folder is searched twice.
     See docs/spec/list_executables.md.
 
 .PARAMETER Format
@@ -26,19 +30,16 @@
     Also search removable, network and other drives that are ready, not only
     the local (fixed) ones. Ignored with -Path.
 
-.PARAMETER Extension
-    File extensions that count as executable, with or without the dot.
-    Default: .exe .com .bat .cmd .ps1 .msi
-
-.PARAMETER IncludeLibraries
-    Also list dynamic libraries (.dll files).
+.PARAMETER Category
+    The categories to list: Executable, Library and/or Other.
+    Default: Executable, Library
 
 .EXAMPLE
     .\list_executables.ps1
     .\list_executables.ps1 -Format csv -OutFile executables.csv
     .\list_executables.ps1 -Path 'C:\Program Files', D:\Tools
-    .\list_executables.ps1 -IncludeLibraries
-    .\list_executables.ps1 -Extension exe, dll
+    .\list_executables.ps1 -Category Executable, Library, Other
+    .\list_executables.ps1 -Category Other
 #>
 [CmdletBinding()]
 param(
@@ -51,9 +52,8 @@ param(
 
     [switch]$AllDrives,
 
-    [string[]]$Extension = @('.exe', '.com', '.bat', '.cmd', '.ps1', '.msi'),
-
-    [switch]$IncludeLibraries
+    [ValidateSet('Executable', 'Library', 'Other')]
+    [string[]]$Category = @('Executable', 'Library')
 )
 
 $ErrorActionPreference = 'Stop'
@@ -64,16 +64,17 @@ if (-not $Path) {
     } | ForEach-Object { $_.RootDirectory.FullName })
 }
 
-# Compared case-insensitively, with or without the leading dot
-$extensions = New-Object 'System.Collections.Generic.HashSet[string]' ([StringComparer]::OrdinalIgnoreCase)
-foreach ($ext in $Extension) { [void]$extensions.Add('.' + $ext.TrimStart('.')) }
-if ($IncludeLibraries) { [void]$extensions.Add('.dll') }
-
+# The category of each extension (hashtable keys are case-insensitive)
 $categories = @{}
 foreach ($ext in '.exe', '.com', '.scr') { $categories[$ext] = 'Executable' }
-foreach ($ext in '.bat', '.cmd', '.ps1', '.vbs', '.js', '.wsf') { $categories[$ext] = 'Script' }
-foreach ($ext in '.msi', '.msp') { $categories[$ext] = 'Installer' }
 foreach ($ext in '.dll', '.ocx') { $categories[$ext] = 'Library' }
+foreach ($ext in '.bat', '.cmd', '.ps1', '.vbs', '.js', '.wsf', '.msi', '.msp') { $categories[$ext] = 'Other' }
+
+# Only the extensions of the chosen categories are listed
+$wanted = @{}
+foreach ($ext in $categories.Keys) {
+    if ($Category -contains $categories[$ext]) { $wanted[$ext] = $categories[$ext] }
+}
 
 $invariant = [Globalization.CultureInfo]::InvariantCulture
 $files = New-Object System.Collections.Generic.List[object]
@@ -93,15 +94,14 @@ while ($stack.Count) {
             if ($entry -is [IO.DirectoryInfo]) {
                 # Junctions and folder symlinks lead to folders searched elsewhere
                 if (-not ($entry.Attributes -band [IO.FileAttributes]::ReparsePoint)) { $stack.Push($entry) }
-            } elseif ($extensions.Contains($entry.Extension)) {
-                $category = $categories[$entry.Extension]
+            } elseif ($wanted.ContainsKey($entry.Extension)) {
                 $files.Add([pscustomobject]@{
                     Name      = $entry.Name
                     Directory = $entry.DirectoryName
                     Size      = $entry.Length
                     # ISO 8601, local time with its time-zone offset
                     Modified  = $entry.LastWriteTime.ToString('yyyy-MM-ddTHH:mm:sszzz', $invariant)
-                    Category  = $(if ($category) { $category } else { 'Other' })
+                    Category  = $wanted[$entry.Extension]
                 })
             }
         }

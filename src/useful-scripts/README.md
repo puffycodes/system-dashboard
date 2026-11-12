@@ -141,7 +141,7 @@ In text, csv and html, multiple IP addresses are separated by `, `. In json, `IP
 
 ## List executables
 
-Scripts that list the executable files on a machine's local disks, with each file's name, directory, size, last modified time and category. Dynamic libraries are left out unless you ask for them.
+Scripts that list the executable files on a machine's local disks, with each file's name, directory, size, last modified time and category. By default they list programs and dynamic libraries; other executable files, such as scripts, are listed only when you ask for them.
 Requirements: [docs/spec/list_executables.md](../../docs/spec/list_executables.md).
 
 | Script | Platform | Output formats | Default output |
@@ -154,7 +154,7 @@ Searching whole disks takes a while, often several minutes on Windows. Folders t
 ### list_executables.ps1 (Windows)
 
 ```powershell
-.\list_executables.ps1 [-Format text|csv|json|html] [-OutFile <path>] [-Path <folder>[, ...]] [-AllDrives] [-Extension <ext>[, ...]] [-IncludeLibraries]
+.\list_executables.ps1 [-Format text|csv|json|html] [-OutFile <path>] [-Path <folder>[, ...]] [-AllDrives] [-Category Executable|Library|Other[, ...]]
 ```
 
 | Parameter | Default | Description |
@@ -163,16 +163,15 @@ Searching whole disks takes a while, often several minutes on Windows. Folders t
 | `-OutFile` | *(stdout)* | File to write to (UTF-8). If omitted, output is printed. |
 | `-Path` | *(local drives)* | Folders to search instead of the local drives. |
 | `-AllDrives` | *(off)* | Also search removable, network and other drives that are ready. Ignored with `-Path`. |
-| `-Extension` | `.exe .com .bat .cmd .ps1 .msi` | File extensions that count as executable, with or without the dot. |
-| `-IncludeLibraries` | *(off)* | Also list dynamic libraries (`.dll` files). |
+| `-Category` | `Executable, Library` | The [categories](#categories) to list: any of `Executable`, `Library` and `Other`. |
 
 Examples:
 
 ```powershell
 .\list_executables.ps1 -Format csv -OutFile executables.csv
 .\list_executables.ps1 -Path 'C:\Program Files', D:\Tools
-.\list_executables.ps1 -IncludeLibraries -Format json -OutFile executables.json
-.\list_executables.ps1 -Extension exe, js
+.\list_executables.ps1 -Category Executable, Library, Other -Format json -OutFile executables.json
+.\list_executables.ps1 -Category Other
 ```
 
 Help: `Get-Help .\list_executables.ps1 -Full`
@@ -180,7 +179,7 @@ Help: `Get-Help .\list_executables.ps1 -Full`
 ### list_executables.sh (Linux)
 
 ```sh
-sh list_executables.sh [-f text|csv|json|html] [-o output_file] [-a] [-l] [-p folder]...
+sh list_executables.sh [-f text|csv|json|html] [-o output_file] [-a] [-c categories] [-p folder]...
 ```
 
 | Option | Default | Description |
@@ -188,7 +187,7 @@ sh list_executables.sh [-f text|csv|json|html] [-o output_file] [-a] [-l] [-p fo
 | `-f` | `text` | Output format: `text`, `csv`, `json` or `html`. |
 | `-o` | *(stdout)* | File to write to. If omitted, output is printed. |
 | `-a` | | Also search network and other mounted filesystems, except virtual ones such as `/proc` and `/sys`. |
-| `-l` | *(off)* | Also list dynamic libraries (`*.so` and `*.so.*` files). |
+| `-c` | `executable,library` | The [categories](#categories) to list, separated by commas: any of `executable`, `library` and `other`, or `all`. |
 | `-p` | *(local disks)* | Search this folder instead of the local disks. Repeat it for more folders. |
 | `-h` | | Show usage. |
 
@@ -197,28 +196,29 @@ Examples:
 ```sh
 sudo sh list_executables.sh -f csv -o executables.csv
 sh list_executables.sh -p /usr/local/bin -p /opt
-sh list_executables.sh -l -f json -o executables.json
+sh list_executables.sh -c all -f json -o executables.json
+sh list_executables.sh -c other
 ```
 
 Like `list_installed_software.sh`, it refuses to be sourced. It works with GNU or BusyBox tools.
 
-### What counts as an executable
-
-**Windows:** a file whose extension is in the `-Extension` list, plus `.dll` files with `-IncludeLibraries`. The default list is programs and scripts Windows runs directly, plus PowerShell scripts and installers; `.js` and other script types are left out unless you add them. Junctions and symbolic links to folders are not followed, so no folder is searched twice. The local drives are the fixed ones (`C:` and other internal disks).
-
-**Linux:** a regular file with any execute permission bit set. Dynamic libraries (`*.so` and `*.so.*`) are left out, even when they have an execute bit; with `-l` they are all listed, whatever their permissions. Symbolic links aren't listed; the files they point to are. The local disks are the filesystems on a `/dev/` block device, plus ZFS, so network mounts, `tmpfs`, `/proc` and, in WSL, the Windows drives under `/mnt/` are left out. Each filesystem is searched once, even if it's mounted in several places, and the search never crosses into another filesystem, including from a `-p` folder.
-
 ### Categories
 
-| Category | Windows | Linux |
-|---|---|---|
-| `Executable` | `.exe`, `.com`, `.scr` | Any other executable file (usually an ELF program) |
-| `Script` | `.bat`, `.cmd`, `.ps1`, `.vbs`, `.js`, `.wsf` | A file starting with `#!` |
-| `Installer` | `.msi`, `.msp` | |
-| `Library` | `.dll`, `.ocx` | `*.so`, `*.so.*` |
-| `Other` | Any other extension given with `-Extension` | |
+Each file listed is in one category, shown in its `Category` field:
 
-On Linux, a file that can't be read is counted as an `Executable`.
+| Category | Windows (by extension) | Linux |
+|---|---|---|
+| `Executable` | Programs: `.exe`, `.com`, `.scr` | An ELF program: a file with an execute bit that starts with the ELF signature, or that can't be read |
+| `Library` | Dynamic libraries: `.dll`, `.ocx` | A dynamic library: a file named `*.so` or `*.so.*`, with or without an execute bit |
+| `Other` | Scripts and installers: `.bat`, `.cmd`, `.ps1`, `.vbs`, `.js`, `.wsf`, `.msi`, `.msp` | Any other file with an execute bit, such as a script |
+
+`Executable` and `Library` are listed by default. `Other` is left out by default, because on Linux it is mostly scripts and data files that happen to have an execute bit.
+
+### What is searched
+
+**Windows:** the fixed drives (`C:` and other internal disks). Junctions and symbolic links to folders are not followed, so no folder is searched twice.
+
+**Linux:** the filesystems on a `/dev/` block device, plus ZFS, so network mounts, `tmpfs`, `/proc` and, in WSL, the Windows drives under `/mnt/` are left out. Each filesystem is searched once, even if it's mounted in several places, and the search never crosses into another filesystem, including from a `-p` folder. Only regular files are listed: symbolic links aren't, but the files they point to are.
 
 ### Fields and output formats
 
@@ -228,7 +228,7 @@ On Linux, a file that can't be read is counted as an `Executable`.
 | `Directory` | Full path of the folder the file is in |
 | `Size` | Size in bytes |
 | `Modified` | Last modified time, in ISO 8601 local time with its time-zone offset (e.g. `2026-11-12T10:54:59+08:00`) |
-| `Category` | What kind of file it is, from the [categories](#categories) above |
+| `Category` | `Executable`, `Library` or `Other`; see [Categories](#categories) |
 
 Files are sorted by directory, then name, and a file found twice (e.g. from overlapping `-Path` folders) is listed once.
 
@@ -247,4 +247,4 @@ With BusyBox, whose `stat` doesn't report time zones, `Modified` uses the machin
 |---|---|
 | `0` | Success |
 | `1` | No executable files found. For `.sh`, also returned when the script is sourced. |
-| `2` | Invalid option, format or `-p` folder (`.sh` only. In `.ps1`, an invalid `-Format` or missing `-Path` folder raises an error.) |
+| `2` | Invalid option, format, category or `-p` folder (`.sh` only. In `.ps1`, an invalid `-Format` or `-Category`, or a missing `-Path` folder, raises an error.) |
