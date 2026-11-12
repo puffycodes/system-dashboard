@@ -15,6 +15,15 @@ A local web dashboard showing information about the machine it runs on.
 - If the port is already in use, exits with an error that suggests choosing another port.
 - Stops cleanly on Ctrl+C.
 
+## Packaging
+
+- One package per target: the PowerShell version, Windows x86-64, Linux x86-64 and Linux ARM64.
+- Each package contains only the files needed on the target machine.
+- Each package's files are in a folder named after the package, so extracting one never mixes its files with others.
+- Each package includes a `README.txt` on starting, stopping and the options for that package, with its version.
+- Linux packages keep the binary's executable permission.
+- Checksums of the packages are provided in a `SHA256SUMS` file.
+
 ## Security
 
 - Listens on the loopback interface only; other machines cannot reach it.
@@ -41,6 +50,9 @@ A local web dashboard showing information about the machine it runs on.
         - A label for the dropdown menu that says "Download Format".
         - The file formats should follow exactly those in [list_installed_software](list_installed_software.md).
         - Default download file name should be installed_software_<hostname>_<YYYYMMDD_HHMMSS>.<extension>.
+        - The file includes the system information, as list_installed_software does by default.
+        - The file contains the whole list in list_installed_software's order, whatever the table's filter and sort.
+        - The button is disabled until the list has loaded and while it is being refreshed.
     - Show a loading message while the list is read, and an error message if it can't be loaded.
 
 ## User interface
