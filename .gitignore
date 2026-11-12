@@ -1,2 +1,5 @@
 # Packages written by scripts/package.ps1 and scripts/package.sh
 /dist/
+
+# Output of the list_installed_software scripts (the .bat default and the README examples)
+/src/useful-scripts/installed_software.*
