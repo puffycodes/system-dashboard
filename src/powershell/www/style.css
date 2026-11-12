@@ -57,6 +57,10 @@ h2 { margin: 0; font-size: 16px; }
 }
 .spacer { flex: 1; }
 
+/* Label, format and button stay together when the controls wrap */
+.download { display: flex; align-items: center; gap: 8px; }
+.download label { color: var(--muted); white-space: nowrap; }
+
 .info {
   display: grid;
   grid-template-columns: max-content 1fr;

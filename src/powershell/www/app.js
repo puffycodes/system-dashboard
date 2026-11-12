@@ -157,7 +157,7 @@ function formatHtml(items, info) {
     '</body></html>\n';
 }
 
-// installed_software_<host>_<YYYYMMDD_HHMMSS>.<ext>, using the time the list was
+// installed_software_<hostname>_<YYYYMMDD_HHMMSS>.<ext>, using the time the list was
 // read in the machine's local time, as in the file. Characters that aren't
 // allowed in Windows file names are replaced with "_".
 function downloadFileName(info, ext) {
