@@ -27,7 +27,7 @@ Run `.\scripts\package.ps1 -SkipGo` from the repo root (or without `-SkipGo` to 
 | Path | Purpose |
 |---|---|
 | `server.ps1` | HTTP server: routes `/api/*` to collectors, serves everything else from `www/` |
-| `modules/SystemDashboard.psm1` | Data collectors (`Get-InstalledSoftware`) that return plain objects |
+| `modules/SystemDashboard.psm1` | Data collectors (`Get-InstalledSoftware`, `Get-IPAddress`) that return plain objects |
 | `www/index.html`, `www/app.js`, `www/style.css` | The UI: plain HTML/JS/CSS, no build step or libraries |
 | `start.cmd` | Double-click launcher (bypasses the execution policy, opens the browser) |
 
@@ -37,7 +37,7 @@ The packaging scripts copy `start.cmd`, `server.ps1`, and everything in `modules
 
 | Route | Returns |
 |---|---|
-| `GET /api/software` | `{ "computerName": "...", "generatedAt": "<ISO 8601>", "items": [{ "Name": "...", "Version": "..." }] }` |
+| `GET /api/software` | `{ "computerName": "...", "ipAddresses": ["..."], "generatedAt": "<ISO 8601>", "items": [{ "Name": "...", "Version": "..." }] }` |
 
 Errors come back as `{ "error": "..." }` with a 404 or 500 status.
 
@@ -47,6 +47,7 @@ Errors come back as `{ "error": "..." }` with a 404 or 500 status.
 
 - **UI:** `src/go/www/` is a copy of `www/`. When you change the UI, change both copies, or copy one over the other.
 - **Software list:** `Get-InstalledSoftware` and `src/go/software_windows.go` use the same registry keys and filtering as [`list_installed_software.ps1`](../useful-scripts/list_installed_software.ps1). If you change one, change the others to match.
+- **IP addresses:** `Get-IPAddress` and `ipAddresses` in `src/go/server.go` skip the same addresses as [`list_installed_software.ps1`](../useful-scripts/list_installed_software.ps1) and `.sh`. If you change one, change the others to match.
 
 ## Adding a panel
 

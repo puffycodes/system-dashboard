@@ -13,7 +13,7 @@
     Routes:
         GET /               -> www/index.html
         GET /<file>         -> static file from www/
-        GET /api/software   -> { computerName, generatedAt, items: [{ Name, Version }] }
+        GET /api/software   -> { computerName, ipAddresses, generatedAt, items: [{ Name, Version }] }
 
 .PARAMETER Port
     Port to listen on. Default 8080.
@@ -145,6 +145,7 @@ function Invoke-Request {
         } elseif ($path -eq '/api/software') {
             Send-Json $response ([ordered]@{
                 computerName = $env:COMPUTERNAME
+                ipAddresses  = @(Get-IPAddress)
                 generatedAt  = (Get-Date).ToString('o')
                 items        = @(Get-InstalledSoftware)
             })

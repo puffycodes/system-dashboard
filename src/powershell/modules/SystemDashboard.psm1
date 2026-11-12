@@ -40,4 +40,31 @@ function Get-InstalledSoftware {
     @($software | Sort-Object -Property Name, Version -Unique)
 }
 
-Export-ModuleMember -Function Get-InstalledSoftware
+function Get-IPAddress {
+    <#
+    .SYNOPSIS
+        Lists the machine's IP addresses, IPv4 first.
+
+    .DESCRIPTION
+        Same as src/useful-scripts/list_installed_software.ps1: addresses of
+        the interfaces that are up, skipping loopback and link-local addresses.
+        See docs/spec/list_installed_software.md.
+    #>
+    [CmdletBinding()]
+    param()
+
+    $addresses = foreach ($nic in [System.Net.NetworkInformation.NetworkInterface]::GetAllNetworkInterfaces()) {
+        if ($nic.OperationalStatus -ne 'Up' -or $nic.NetworkInterfaceType -eq 'Loopback') { continue }
+        foreach ($unicast in $nic.GetIPProperties().UnicastAddresses) {
+            $ip = $unicast.Address
+            if ([System.Net.IPAddress]::IsLoopback($ip) -or $ip.IsIPv6LinkLocal -or
+                $ip.ToString().StartsWith('169.254.')) { continue }
+            $ip
+        }
+    }
+    $v4 = $addresses | Where-Object { $_.AddressFamily -eq 'InterNetwork' }
+    $v6 = $addresses | Where-Object { $_.AddressFamily -ne 'InterNetwork' }
+    @(@($v4) + @($v6) | ForEach-Object { $_.ToString() } | Select-Object -Unique)
+}
+
+Export-ModuleMember -Function Get-InstalledSoftware, Get-IPAddress

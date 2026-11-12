@@ -98,7 +98,7 @@ Identical to the PowerShell version, so they share the same UI:
 
 | Route | Returns |
 |---|---|
-| `GET /api/software` | `{ "computerName": "...", "generatedAt": "<RFC 3339>", "items": [{ "Name": "...", "Version": "..." }] }` |
+| `GET /api/software` | `{ "computerName": "...", "ipAddresses": ["..."], "generatedAt": "<RFC 3339>", "items": [{ "Name": "...", "Version": "..." }] }` |
 
 Unknown `/api/` routes return `{ "error": "..." }` with a 404 status.
 

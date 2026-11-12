@@ -1,12 +1,18 @@
 'use strict';
 
+// System panel: filled from the same /api/software response, so Refresh updates it too.
+const system = {
+  host: document.getElementById('system-host'),
+  ips: document.getElementById('system-ips'),
+  time: document.getElementById('system-time'),
+};
+
 // Installed software panel: fetch /api/software, then filter and sort client-side.
 const software = {
   items: [],
   sortKey: 'Name',
   sortDir: 1,
   els: {
-    machine: document.getElementById('machine'),
     count: document.getElementById('software-count'),
     filter: document.getElementById('software-filter'),
     refresh: document.getElementById('software-refresh'),
@@ -28,8 +34,9 @@ async function loadSoftware() {
     if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
 
     software.items = data.items;
-    els.machine.textContent =
-      `${data.computerName} · updated ${new Date(data.generatedAt).toLocaleString()}`;
+    system.host.textContent = data.computerName;
+    system.ips.textContent = data.ipAddresses.length ? data.ipAddresses.join(', ') : 'N/A';
+    system.time.textContent = new Date(data.generatedAt).toLocaleString();
     els.status.textContent = '';
     renderSoftware();
   } catch (err) {

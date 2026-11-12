@@ -2,6 +2,7 @@ package main
 
 import (
 	"encoding/json"
+	"net"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -49,6 +50,7 @@ func TestSoftwareAPI(t *testing.T) {
 	}
 	var body struct {
 		ComputerName string     `json:"computerName"`
+		IPAddresses  []string   `json:"ipAddresses"`
 		GeneratedAt  string     `json:"generatedAt"`
 		Items        []Software `json:"items"`
 	}
@@ -57,6 +59,9 @@ func TestSoftwareAPI(t *testing.T) {
 	}
 	if body.GeneratedAt == "" {
 		t.Error("generatedAt is empty")
+	}
+	if body.IPAddresses == nil {
+		t.Errorf("ipAddresses missing or null in %s", rec.Body.String())
 	}
 	if len(body.Items) != 1 || body.Items[0] != stubSoftware()[0] {
 		t.Errorf("items = %+v, want %+v", body.Items, stubSoftware())
@@ -68,6 +73,26 @@ func TestEmptySoftwareListIsArray(t *testing.T) {
 	newHandler(func() []Software { return nil }).ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/api/software", nil))
 	if !strings.Contains(rec.Body.String(), `"items":[]`) {
 		t.Errorf("body = %s, want items to be []", rec.Body.String())
+	}
+}
+
+func TestIPAddressesSkipLoopbackAndLinkLocal(t *testing.T) {
+	ips := ipAddresses()
+	if ips == nil {
+		t.Fatal("ipAddresses() = nil, want an empty or filled slice")
+	}
+	seenV6 := false
+	for _, s := range ips {
+		ip := net.ParseIP(s)
+		if ip == nil || ip.IsLoopback() || ip.IsLinkLocalUnicast() {
+			t.Errorf("unexpected address %q in %v", s, ips)
+			continue
+		}
+		if ip.To4() == nil {
+			seenV6 = true
+		} else if seenV6 {
+			t.Errorf("IPv4 %q listed after an IPv6 address in %v", s, ips)
+		}
 	}
 }
 

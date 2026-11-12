@@ -5,9 +5,11 @@ import (
 	"encoding/json"
 	"io/fs"
 	"log"
+	"net"
 	"net/http"
 	"os"
 	"path"
+	"runtime"
 	"time"
 )
 
@@ -37,7 +39,7 @@ var contentTypes = map[string]string{
 //
 //	GET /               -> www/index.html
 //	GET /<file>         -> static file from www/
-//	GET /api/software   -> { computerName, generatedAt, items: [{ Name, Version }] }
+//	GET /api/software   -> { computerName, ipAddresses, generatedAt, items: [{ Name, Version }] }
 func newHandler(listSoftware func() []Software) http.Handler {
 	www, err := fs.Sub(wwwFiles, "www")
 	if err != nil {
@@ -53,6 +55,7 @@ func newHandler(listSoftware func() []Software) http.Handler {
 		}
 		writeJSON(w, http.StatusOK, map[string]any{
 			"computerName": computerName(),
+			"ipAddresses":  ipAddresses(),
 			"generatedAt":  time.Now().Format(time.RFC3339Nano),
 			"items":        items,
 		})
@@ -91,6 +94,43 @@ func computerName() string {
 	}
 	name, _ := os.Hostname()
 	return name
+}
+
+// ipAddresses lists the machine's addresses, IPv4 first, like
+// list_installed_software.ps1 and .sh: loopback and link-local addresses are
+// skipped. On Windows only interfaces that are up count, as in the .ps1; on
+// Linux every interface counts, as with `ip addr show scope global` in the .sh.
+// It never returns nil, so the API always sends an array.
+func ipAddresses() []string {
+	v4, v6 := []string{}, []string{}
+	ifaces, _ := net.Interfaces()
+	for _, iface := range ifaces {
+		if runtime.GOOS == "windows" && iface.Flags&net.FlagUp == 0 {
+			continue
+		}
+		addrs, _ := iface.Addrs()
+		for _, addr := range addrs {
+			ipnet, ok := addr.(*net.IPNet)
+			if !ok || ipnet.IP.IsLoopback() || ipnet.IP.IsLinkLocalUnicast() || !ipnet.IP.IsGlobalUnicast() {
+				continue
+			}
+			if ipnet.IP.To4() != nil {
+				v4 = append(v4, ipnet.IP.String())
+			} else {
+				v6 = append(v6, ipnet.IP.String())
+			}
+		}
+	}
+
+	seen := map[string]bool{}
+	ips := []string{}
+	for _, ip := range append(v4, v6...) {
+		if !seen[ip] {
+			seen[ip] = true
+			ips = append(ips, ip)
+		}
+	}
+	return ips
 }
 
 type statusRecorder struct {
