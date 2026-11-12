@@ -143,6 +143,7 @@ const executables = {
     scan: document.getElementById('executables-scan'),
     format: document.getElementById('executables-format'),
     download: document.getElementById('executables-download'),
+    all: document.getElementById('executables-all'),
     categories: document.querySelectorAll('#panel-executables input[name="category"]'),
     time: document.getElementById('executables-time'),
     status: document.getElementById('executables-status'),
@@ -169,6 +170,14 @@ function selectedCategories() {
 
 function updateScanButton() {
   executables.els.scan.disabled = executables.scanning || selectedCategories().length === 0;
+}
+
+// "All" is ticked when every category is, and partly ticked when only some are
+function updateAllCheckbox() {
+  const { all, categories } = executables.els;
+  const ticked = selectedCategories().length;
+  all.checked = ticked === categories.length;
+  all.indeterminate = ticked > 0 && ticked < categories.length;
 }
 
 function elapsed(ms) {
@@ -453,6 +462,18 @@ executables.els.filter.addEventListener('input', () => {
 });
 executables.els.scan.addEventListener('click', scanExecutables);
 executables.els.download.addEventListener('click', downloadExecutables);
-for (const box of executables.els.categories) box.addEventListener('change', updateScanButton);
+for (const box of executables.els.categories) {
+  box.addEventListener('change', () => {
+    updateAllCheckbox();
+    updateScanButton();
+  });
+}
+// Ticking "All" selects every category; clearing it clears them all
+executables.els.all.addEventListener('change', () => {
+  for (const box of executables.els.categories) box.checked = executables.els.all.checked;
+  updateAllCheckbox();
+  updateScanButton();
+});
+updateAllCheckbox();
 
 loadSoftware();
