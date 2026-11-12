@@ -3,3 +3,6 @@
 
 # Output of the list_installed_software scripts (the .bat default and the README examples)
 installed_software.*
+
+# Output of the list_executables scripts (the README examples)
+executables.*
