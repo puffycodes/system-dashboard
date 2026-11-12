@@ -51,7 +51,7 @@ See [src/useful-scripts/README.md](src/useful-scripts/README.md) for all options
 
 ## Copying the dashboard to another machine
 
-Only the files below are needed on the target machine: no READMEs, source code or Go installation.
+Only the files below are needed on the target machine: no source code or Go installation.
 
 ### Packaging
 
@@ -69,15 +69,19 @@ The packaging scripts build everything and put exactly these files in one archiv
 
 | Archive in `dist/` | Contents | For |
 |---|---|---|
-| `system-dashboard-<version>-powershell.zip` | `system-dashboard/` folder (layout below) | Windows, PowerShell version |
-| `system-dashboard-<version>-windows-amd64.zip` | `system-dashboard.exe` | Windows, Go version |
-| `system-dashboard-<version>-linux-amd64.tar.gz` | `system-dashboard-linux-amd64` | Linux x86-64 |
-| `system-dashboard-<version>-linux-arm64.tar.gz` | `system-dashboard-linux-arm64` | Linux ARM64 |
+| `system-dashboard-<version>-powershell.zip` | The PowerShell version's files (layout below) | Windows, PowerShell version |
+| `system-dashboard-<version>-windows-amd64.zip` | `system-dashboard.exe`, `README.txt` | Windows, Go version |
+| `system-dashboard-<version>-linux-amd64.tar.gz` | `system-dashboard-linux-amd64`, `README.txt` | Linux x86-64 |
+| `system-dashboard-<version>-linux-arm64.tar.gz` | `system-dashboard-linux-arm64`, `README.txt` | Linux ARM64 |
 | `SHA256SUMS` | Checksums of the archives | Check a copy with `sha256sum -c SHA256SUMS` |
+
+Each archive's files are in a folder named after the archive, e.g. `system-dashboard-<version>-windows-amd64/`, so extracting one never mixes them with other files, even another of these packages.
+
+Each archive includes a short `README.txt` on starting, stopping and the options for that package. They are made from the templates in [`scripts/package-readme/`](scripts/package-readme/), with the version filled in. They repeat the dashboards' options, so if you change an option, update them too.
 
 `<version>` defaults to `git describe --tags --always --dirty`: the latest tag or commit, plus `-dirty` if tracked files have uncommitted changes. The Go binaries print the same version with `-version`, and the PowerShell version with `-Version`. Set it with `-Version` / `-v`, and the output folder with `-OutDir` / `-o`. Before building, the scripts run `go vet` and `go test` and stop if either fails. They take files from the working tree, so uncommitted changes are included. `dist/` is git-ignored.
 
-The `.tar.gz` archives keep the Linux binaries executable, even when packaged on Windows: `tar -xzf system-dashboard-<version>-linux-amd64.tar.gz`, then run `./system-dashboard-linux-amd64`. Zip archives also avoid email filters that block `.exe` attachments.
+The `.tar.gz` archives keep the Linux binaries executable, even when packaged on Windows: `tar -xzf system-dashboard-<version>-linux-amd64.tar.gz`, then `cd system-dashboard-<version>-linux-amd64` and run `./system-dashboard-linux-amd64`. Zip archives also avoid email filters that block `.exe` attachments.
 
 ### Go version (simplest)
 
@@ -99,10 +103,11 @@ The binaries are build output, not files in git. Build them with `scripts\build.
 Copy the whole folder and keep its layout, because `server.ps1` looks for `modules\` and `www\` next to itself:
 
 ```
-system-dashboard\
+system-dashboard-<version>-powershell\
 ├── start.cmd                      (double-click launcher; optional but convenient)
 ├── server.ps1
 ├── VERSION                        (written by the packaging scripts; read by server.ps1 -Version)
+├── README.txt                     (written by the packaging scripts: how to run it)
 ├── modules\
 │   └── SystemDashboard.psm1
 └── www\
@@ -111,7 +116,7 @@ system-dashboard\
     └── style.css
 ```
 
-That's the contents of [`src/powershell/`](src/powershell/) without `README.md`, plus the `VERSION` file. Double-click `start.cmd` to run it.
+That's the contents of [`src/powershell/`](src/powershell/) without `README.md`, plus the `VERSION` and `README.txt` files. Double-click `start.cmd` to run it.
 
 If the files arrive by download, Windows marks them as coming from the internet. `start.cmd` bypasses the script policy, so it still works. If you run `server.ps1` directly instead, unblock the files first: `Get-ChildItem -Recurse | Unblock-File`.
 

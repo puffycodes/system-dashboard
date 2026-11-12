@@ -6,11 +6,19 @@
     Writes one archive per target to -OutDir, containing only the files the
     target needs (see "Copying the dashboard to another machine" in README.md):
 
-        system-dashboard-<version>-powershell.zip      PowerShell version: system-dashboard\ folder
+        system-dashboard-<version>-powershell.zip      PowerShell version: start.cmd, server.ps1, modules\, www\
         system-dashboard-<version>-windows-amd64.zip   system-dashboard.exe
         system-dashboard-<version>-linux-amd64.tar.gz  system-dashboard-linux-amd64, marked executable
         system-dashboard-<version>-linux-arm64.tar.gz  system-dashboard-linux-arm64, marked executable
         SHA256SUMS                                     checksums, for sha256sum -c
+
+    Each archive's files are in a folder named after the archive (e.g.
+    system-dashboard-<version>-windows-amd64), so extracting it never mixes
+    them with other files, even another of these packages.
+
+    Each archive also has a README.txt on running that package, made from
+    scripts\package-readme\<powershell|windows|linux>.txt with the version
+    (and the Linux binary's name) filled in. The Windows ones get CRLF endings.
 
     The Go binaries are built after running the Go tests. Archives are made
     with Windows' built-in tar.exe (Windows 10 1803 or later), which also sets
@@ -66,19 +74,33 @@ function Get-DefaultVersion {
     'dev'
 }
 
+function Write-PackageReadme {
+    param([string]$Template, [string]$Dir, [string]$Binary, [switch]$Crlf)
+    $text = [IO.File]::ReadAllText((Join-Path $PSScriptRoot "package-readme\$Template.txt"))
+    $text = $text.Replace("`r`n", "`n").Replace('@VERSION@', $Version).Replace('@BINARY@', $Binary)
+    if ($Crlf) { $text = $text.Replace("`n", "`r`n") }
+    [IO.File]::WriteAllText((Join-Path $Dir 'README.txt'), $text)
+}
+
 function New-Zip {
-    param([string]$ZipPath, [string]$FromDir, [string]$Entry)
+    param([string]$ZipPath, [string]$FromDir, [string[]]$Entry)
     # tar.exe writes zip entries with / separators; Compress-Archive in
     # PowerShell 5.1 writes \, which breaks extraction on other systems
-    Invoke-Native "Creating $(Split-Path -Leaf $ZipPath)" { tar.exe -a -c -f $ZipPath -C $FromDir $Entry }
+    Invoke-Native "Creating $(Split-Path -Leaf $ZipPath)" { tar.exe -a -c -f $ZipPath -C $FromDir @Entry }
 }
 
 function New-ExecutableTarGz {
-    param([string]$TarPath, [string]$FromDir, [string]$FileName)
-    # An mtree spec sets the mode explicitly; NTFS has no executable bit to copy
+    param([string]$TarPath, [string]$FromDir, [string]$Folder, [string]$FileName)
+    # An mtree spec sets the modes explicitly; NTFS has no executable bit to copy.
+    # The dir line steps into $Folder, so the files below it are stored inside it.
     $spec = Join-Path (Split-Path -Parent $FromDir) "$FileName.mtree"
+    $owner = 'uid=0 gid=0 uname=root gname=root'
     [IO.File]::WriteAllText($spec,
-        "#mtree`n$FileName type=file mode=0755 uid=0 gid=0 uname=root gname=root contents=$FileName`n")
+        "#mtree`n" +
+        "$Folder type=dir mode=0755 $owner`n" +
+        "$FileName type=file mode=0755 $owner contents=$Folder/$FileName`n" +
+        "README.txt type=file mode=0644 $owner contents=$Folder/README.txt`n" +
+        "..`n")
     Push-Location $FromDir
     try {
         Invoke-Native "Creating $(Split-Path -Leaf $TarPath)" { tar.exe -c -z -f $TarPath "@$spec" }
@@ -131,16 +153,20 @@ $archives = New-Object System.Collections.Generic.List[string]
 try {
     # --- PowerShell version ----------------------------------------------
 
+    # Each archive's files go in a folder named after the archive
+    $folder = "system-dashboard-$Version-powershell"
+
     Write-Host "Packaging the PowerShell version ($Version)"
     $psStage = Join-Path $stage 'powershell'
-    $psDir = Join-Path $psStage 'system-dashboard'
+    $psDir = Join-Path $psStage $folder
     New-Item -ItemType Directory -Path $psDir | Out-Null
     Copy-Item -LiteralPath (Join-Path $psSource 'start.cmd'), (Join-Path $psSource 'server.ps1') -Destination $psDir
     Copy-Item -LiteralPath (Join-Path $psSource 'modules'), (Join-Path $psSource 'www') -Destination $psDir -Recurse
     [IO.File]::WriteAllText((Join-Path $psDir 'VERSION'), "$Version`n")   # read by server.ps1 -Version
+    Write-PackageReadme -Template powershell -Dir $psDir -Crlf
 
-    $zip = Join-Path $OutDir "system-dashboard-$Version-powershell.zip"
-    New-Zip -ZipPath $zip -FromDir $psStage -Entry 'system-dashboard'
+    $zip = Join-Path $OutDir "$folder.zip"
+    New-Zip -ZipPath $zip -FromDir $psStage -Entry $folder
     $archives.Add($zip)
 
     # --- Go binaries -----------------------------------------------------
@@ -155,19 +181,25 @@ try {
             Invoke-Native 'go test' { go test ./... }
 
             Write-Host 'Building windows/amd64'
-            $winDir = Join-Path $stage 'windows-amd64'
+            $folder = "system-dashboard-$Version-windows-amd64"
+            $winStage = Join-Path $stage 'windows-amd64'
+            $winDir = Join-Path $winStage $folder
             Invoke-GoBuild -GoOS windows -GoArch amd64 -OutFile (Join-Path $winDir 'system-dashboard.exe')
-            $zip = Join-Path $OutDir "system-dashboard-$Version-windows-amd64.zip"
-            New-Zip -ZipPath $zip -FromDir $winDir -Entry 'system-dashboard.exe'
+            Write-PackageReadme -Template windows -Dir $winDir -Crlf
+            $zip = Join-Path $OutDir "$folder.zip"
+            New-Zip -ZipPath $zip -FromDir $winStage -Entry $folder
             $archives.Add($zip)
 
             foreach ($arch in $linuxTargets) {
                 Write-Host "Building linux/$arch"
                 $name = "system-dashboard-linux-$arch"
-                $linuxDir = Join-Path $stage "linux-$arch"
+                $folder = "system-dashboard-$Version-linux-$arch"
+                $linuxStage = Join-Path $stage "linux-$arch"
+                $linuxDir = Join-Path $linuxStage $folder
                 Invoke-GoBuild -GoOS linux -GoArch $arch -OutFile (Join-Path $linuxDir $name)
-                $tarGz = Join-Path $OutDir "system-dashboard-$Version-linux-$arch.tar.gz"
-                New-ExecutableTarGz -TarPath $tarGz -FromDir $linuxDir -FileName $name
+                Write-PackageReadme -Template linux -Dir $linuxDir -Binary $name
+                $tarGz = Join-Path $OutDir "$folder.tar.gz"
+                New-ExecutableTarGz -TarPath $tarGz -FromDir $linuxStage -Folder $folder -FileName $name
                 $archives.Add($tarGz)
             }
         } finally {

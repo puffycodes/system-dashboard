@@ -7,11 +7,20 @@
 #  only the files the target needs (see "Copying the dashboard to
 #  another machine" in README.md):
 #
-#    system-dashboard-<version>-powershell.zip      PowerShell version: system-dashboard/ folder
+#    system-dashboard-<version>-powershell.zip      PowerShell version: start.cmd, server.ps1, modules/, www/
 #    system-dashboard-<version>-windows-amd64.zip   system-dashboard.exe
 #    system-dashboard-<version>-linux-amd64.tar.gz  system-dashboard-linux-amd64, executable
 #    system-dashboard-<version>-linux-arm64.tar.gz  system-dashboard-linux-arm64, executable
 #    SHA256SUMS                                     checksums, for sha256sum -c
+#
+#  Each archive's files are in a folder named after the archive
+#  (e.g. system-dashboard-<version>-linux-amd64), so extracting it
+#  never mixes them with other files, even another of these packages.
+#
+#  Each archive also has a README.txt on running that package, made
+#  from scripts/package-readme/<powershell|windows|linux>.txt with
+#  the version (and the Linux binary's name) filled in. The Windows
+#  ones get CRLF endings.
 #
 #  The Go binaries are built after running the Go tests. Zip files
 #  need one of zip, bsdtar or python3. Earlier output of this script
@@ -88,16 +97,28 @@ trap 'exit 130' INT TERM
 
 ARCHIVES=
 
-# make_zip <zip path> <dir> <entry>: zips <entry> inside <dir>, stored as <entry>
+# make_zip <zip path> <dir> <entry>...: zips the entries inside <dir>, stored by their names
 make_zip() {
+    zip_path=$1 zip_dir=$2
+    shift 2
     if has zip; then
-        (cd "$2" && zip -qr "$1" "$3")
+        (cd "$zip_dir" && zip -qr "$zip_path" "$@")
     elif has bsdtar; then
-        bsdtar -a -cf "$1" -C "$2" "$3"
+        bsdtar -a -cf "$zip_path" -C "$zip_dir" "$@"
     else
-        (cd "$2" && python3 -m zipfile -c "$1" "$3")
+        (cd "$zip_dir" && python3 -m zipfile -c "$zip_path" "$@")
     fi
-    ARCHIVES="$ARCHIVES $(basename "$1")"
+    ARCHIVES="$ARCHIVES $(basename "$zip_path")"
+}
+
+# write_readme <template> <dir> [binary] [crlf]: writes <dir>/README.txt from
+# scripts/package-readme/<template>.txt, with CRLF endings if "crlf" is given
+write_readme() {
+    eol='\n'
+    [ "${4:-}" = crlf ] && eol='\r\n'
+    awk -v version="$VERSION" -v binary="${3:-}" -v eol="$eol" '
+        { sub(/\r$/, ""); gsub(/@VERSION@/, version); gsub(/@BINARY@/, binary); printf "%s%s", $0, eol }
+    ' "$REPO/scripts/package-readme/$1.txt" > "$2/README.txt"
 }
 
 go_build() { # <goos> <goarch> <output file>
@@ -106,13 +127,16 @@ go_build() { # <goos> <goarch> <output file>
 
 # --- PowerShell version ---------------------------------------------------
 
+# Each archive's files go in a folder named after the archive
 echo "Packaging the PowerShell version ($VERSION)"
-PS_DIR="$STAGE/powershell/system-dashboard"
+folder=system-dashboard-$VERSION-powershell
+PS_DIR="$STAGE/powershell/$folder"
 mkdir -p "$PS_DIR"
 cp "$REPO/src/powershell/start.cmd" "$REPO/src/powershell/server.ps1" "$PS_DIR/"
 cp -R "$REPO/src/powershell/modules" "$REPO/src/powershell/www" "$PS_DIR/"
 printf '%s\n' "$VERSION" > "$PS_DIR/VERSION"   # read by server.ps1 -Version
-make_zip "$OUT/system-dashboard-$VERSION-powershell.zip" "$STAGE/powershell" system-dashboard
+write_readme powershell "$PS_DIR" "" crlf
+make_zip "$OUT/$folder.zip" "$STAGE/powershell" "$folder"
 
 # --- Go binaries ----------------------------------------------------------
 
@@ -123,18 +147,25 @@ else
     (cd "$REPO/src/go" && go vet ./... && go test ./...)
 
     echo "Building windows/amd64"
-    mkdir -p "$STAGE/windows-amd64"
-    go_build windows amd64 "$STAGE/windows-amd64/system-dashboard.exe"
-    make_zip "$OUT/system-dashboard-$VERSION-windows-amd64.zip" "$STAGE/windows-amd64" system-dashboard.exe
+    folder=system-dashboard-$VERSION-windows-amd64
+    win_dir="$STAGE/windows-amd64/$folder"
+    mkdir -p "$win_dir"
+    go_build windows amd64 "$win_dir/system-dashboard.exe"
+    write_readme windows "$win_dir" "" crlf
+    make_zip "$OUT/$folder.zip" "$STAGE/windows-amd64" "$folder"
 
     for arch in amd64 arm64; do
         echo "Building linux/$arch"
         name=system-dashboard-linux-$arch
-        mkdir -p "$STAGE/linux-$arch"
-        go_build linux "$arch" "$STAGE/linux-$arch/$name"
-        chmod 755 "$STAGE/linux-$arch/$name"
-        tar -czf "$OUT/system-dashboard-$VERSION-linux-$arch.tar.gz" -C "$STAGE/linux-$arch" "$name"
-        ARCHIVES="$ARCHIVES system-dashboard-$VERSION-linux-$arch.tar.gz"
+        folder=system-dashboard-$VERSION-linux-$arch
+        linux_dir="$STAGE/linux-$arch/$folder"
+        mkdir -p "$linux_dir"
+        go_build linux "$arch" "$linux_dir/$name"
+        chmod 755 "$linux_dir" "$linux_dir/$name"
+        write_readme linux "$linux_dir" "$name"
+        chmod 644 "$linux_dir/README.txt"
+        tar -czf "$OUT/$folder.tar.gz" -C "$STAGE/linux-$arch" "$folder"
+        ARCHIVES="$ARCHIVES $folder.tar.gz"
     done
 fi
 

@@ -20,7 +20,7 @@ The server listens on `localhost` only, so other machines can't reach it. The AP
 
 ## Copying to another machine
 
-Run `.\scripts\package.ps1 -SkipGo` from the repo root (or without `-SkipGo` to build the Go version too). It writes `dist\system-dashboard-<version>-powershell.zip`, which contains only the files below in a `system-dashboard\` folder. Extract it on the target machine and double-click `start.cmd`. See [Copying the dashboard to another machine](../../README.md#copying-the-dashboard-to-another-machine) in the root README.
+Run `.\scripts\package.ps1 -SkipGo` from the repo root (or without `-SkipGo` to build the Go version too). It writes `dist\system-dashboard-<version>-powershell.zip`, which contains only the files below in a `system-dashboard-<version>-powershell\` folder. Extract it on the target machine and double-click `start.cmd`. See [Copying the dashboard to another machine](../../README.md#copying-the-dashboard-to-another-machine) in the root README.
 
 ## Layout
 
@@ -31,7 +31,7 @@ Run `.\scripts\package.ps1 -SkipGo` from the repo root (or without `-SkipGo` to 
 | `www/index.html`, `www/app.js`, `www/style.css` | The UI: plain HTML/JS/CSS, no build step or libraries |
 | `start.cmd` | Double-click launcher (bypasses the execution policy, opens the browser) |
 
-The packaging scripts copy `start.cmd`, `server.ps1`, and everything in `modules/` and `www/`. A new file in those folders is packaged automatically. They also write a `VERSION` file with the package version, which `server.ps1 -Version` prints; without it, as in a git checkout, `-Version` prints `git describe --tags --always --dirty`, or `dev` if git isn't available. If you add a file next to `server.ps1`, add it to `scripts/package.ps1` and `scripts/package.sh`.
+The packaging scripts copy `start.cmd`, `server.ps1`, and everything in `modules/` and `www/`. A new file in those folders is packaged automatically. They also write a `VERSION` file with the package version, which `server.ps1 -Version` prints; without it, as in a git checkout, `-Version` prints `git describe --tags --always --dirty`, or `dev` if git isn't available. They also add a `README.txt` for the person running the package, made from [`scripts/package-readme/powershell.txt`](../../scripts/package-readme/powershell.txt). If you add a file next to `server.ps1`, add it to `scripts/package.ps1` and `scripts/package.sh`.
 
 ## API
 

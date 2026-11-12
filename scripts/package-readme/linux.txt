@@ -1,0 +1,64 @@
+SYSTEM DASHBOARD (Linux)
+========================
+
+Version @VERSION@
+
+A local web page that shows this machine's host name, IP addresses and
+installed software. The software list can be filtered, sorted and
+downloaded as text, csv, json or html.
+
+The whole dashboard is in one file:
+
+  @BINARY@
+
+Nothing needs to be installed. It runs on any Linux distribution with
+this CPU type. Copy it anywhere and run it.
+
+
+START
+-----
+
+  ./@BINARY@
+
+It serves the dashboard at http://localhost:8080/. With a desktop session,
+it opens there in your default browser.
+
+If you get "Permission denied", the file lost its executable permission on
+the way (e.g. copied through Windows or a USB stick). Restore it with:
+
+  chmod +x @BINARY@
+
+
+VIEW IT FROM ANOTHER MACHINE
+----------------------------
+
+On a server without a desktop, the dashboard is only reachable from the
+server itself. Forward the port over SSH from your own machine:
+
+  ssh -L 8080:localhost:8080 <user>@<server>
+
+then open http://localhost:8080/ in your browser there.
+
+
+STOP
+----
+
+Press Ctrl+C.
+
+
+OPTIONS
+-------
+
+  -port <n>      Port to listen on (default 8080), e.g. -port 9000
+  -open=false    Don't try to open a browser
+  -help          Show the options and exit
+  -version       Print the version and exit
+
+If the port is already in use, choose another one with -port.
+
+
+NOTES
+-----
+
+- The dashboard never changes anything on the machine.
+- Run it as a normal user. It doesn't need root.

@@ -1,0 +1,54 @@
+SYSTEM DASHBOARD (PowerShell version)
+=====================================
+
+Version @VERSION@
+
+A local web page that shows this machine's host name, IP addresses and
+installed software. The software list can be filtered, sorted and
+downloaded as text, csv, json or html.
+
+It runs on Windows PowerShell 5.1, which comes with Windows 10 and 11, so
+nothing needs to be installed.
+
+
+START
+-----
+
+Double-click start.cmd. The dashboard opens in your default browser at
+http://localhost:8080/.
+
+Or run it from PowerShell in this folder:
+
+  powershell -ExecutionPolicy Bypass -File .\server.ps1 -Open
+
+Keep this folder's layout: server.ps1 needs the modules\ and www\ folders
+next to it.
+
+
+STOP
+----
+
+Press Ctrl+C in the console window, or close the window.
+
+
+OPTIONS
+-------
+
+  -Port <n>   Port to listen on (default 8080), e.g. start.cmd -Port 9000
+  -Open       Open the dashboard in the browser (start.cmd always does)
+  -Help       Show the options and exit
+  -Version    Print the version and exit
+
+If the port is already in use, choose another one with -Port.
+
+
+NOTES
+-----
+
+- The dashboard is only reachable from this machine, and it never changes
+  anything on it.
+- If these files came from a download or email, Windows marks them as coming
+  from the internet. start.cmd still works. To run server.ps1 directly,
+  unblock the files first, in PowerShell in this folder:
+
+    Get-ChildItem -Recurse | Unblock-File

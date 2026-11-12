@@ -35,6 +35,7 @@ To build all three targets and package them for copying to other machines, use t
 
 ```sh
 tar -xzf system-dashboard-<version>-linux-amd64.tar.gz
+cd system-dashboard-<version>-linux-amd64
 ./system-dashboard-linux-amd64
 ```
 
