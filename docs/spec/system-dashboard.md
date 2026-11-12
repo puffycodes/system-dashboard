@@ -33,8 +33,9 @@ A local web dashboard showing information about the machine it runs on.
 ## Features
 
 - Show information about the system, as in [list_installed_software](list_installed_software.md):
-    - Host Name, IP Addresses, and the timestamp of when the list was last read.
+    - Host Name and IP Addresses.
     - Read together with the installed software, so Refresh updates it too.
+    - Each list shows when it was read in its own tab, so the System panel has no timestamp.
 
 - Retrieve a list of the software installed on the machine.
     - Same entries as [list_installed_software](list_installed_software.md): name and version, a missing version shown as `N/A`, and duplicate name + version entries listed once.
@@ -44,6 +45,7 @@ A local web dashboard showing information about the machine it runs on.
         - Click a column header to sort by it; click again to reverse the order. Sorting is case-insensitive and orders numbers naturally (e.g. `2` before `10`).
     - Filter the table by text matching the name or version (case-insensitive).
     - Show the number of items, or `<shown> of <total>` while a filter is applied.
+    - Show when the list was read.
     - Refresh button to re-read the list from the machine.
     - Download button to download the list.
         - A dropdown menu to select the available format.
@@ -55,9 +57,36 @@ A local web dashboard showing information about the machine it runs on.
         - The button is disabled until the list has loaded and while it is being refreshed.
     - Show a loading message while the list is read, and an error message if it can't be loaded.
 
+- List the executable files on the machine, as in [list_executables](list_executables.md).
+    - Searches the local disks only, like list_executables by default.
+    - Category checkboxes: Executables, Dynamic Libraries, Scripts, Installers, Others.
+        - Default: Executables only, as in list_executables.
+        - Changing them takes effect on the next Scan.
+    - Read only when asked: nothing is searched until the Scan button is pressed, because a full search can take minutes.
+        - While scanning, show a message with the elapsed time, and disable Scan and Download.
+        - A scan can't be cancelled.
+        - The result stays until the next Scan, including across tab switches.
+        - The PowerShell version answers no other requests while a scan runs, so the other tab's Refresh waits for it. The Go version stays responsive.
+    - Display them in a table.
+        - Columns: Name, Directory, Size, Modified, Category.
+        - Size shown in bytes with thousands separators, and sorted as a number.
+        - Sorted by directory, then name, by default; click a column header to sort, as in the installed software table.
+    - Filter the table by text matching the name or directory (case-insensitive).
+    - Show the number of items, or `<shown> of <total>` while a filter is applied.
+    - Show when the list was read.
+    - Download button to download the list, as for the installed software.
+        - A dropdown menu to select the format, labelled "Download Format".
+        - The file formats follow exactly those of [list_executables](list_executables.md).
+        - Default download file name should be executables_<hostname>_<YYYYMMDD_HHMMSS>.<extension>.
+        - The file contains the whole list in list_executables' order, whatever the table's filter and sort.
+    - Show an error message if the list can't be read.
+
 ## User interface
 
-- A single page, with each feature in its own panel.
+- A single page: the System panel at the top, then tabs for the lists.
+    - Tabs: "Installed Software" (default) and "Executables".
+    - The selected tab is kept in the URL (`#software`, `#executables`), so a reload or a link opens the same tab.
+    - Each tab keeps its filter, sort and data when you switch away and back.
 - Follows the system's light or dark theme.
 - Usable on narrow windows: controls wrap, and the table scrolls sideways when needed.
 - Text from the machine (e.g. software names) is always displayed as plain text, never interpreted as HTML.
@@ -80,6 +109,21 @@ The page gets its data from a JSON API on the same server.
     - `generatedAt` is an ISO 8601 timestamp of when the list was read, in local time with its time-zone offset.
     - `ipAddresses` lists the machine's IP addresses, IPv4 first, the same as list_installed_software. It is always an array, even when empty.
     - `items` is always an array, even when empty.
+- `GET /api/executables?categories=executable,library` returns:
+
+    ```json
+    {
+      "computerName": "MY-PC",
+      "generatedAt": "2026-11-12T15:20:17+08:00",
+      "categories": ["Executable", "Library"],
+      "items": [{ "Name": "git.exe", "Directory": "C:\\Program Files\\Git\\cmd", "Size": 45056, "Modified": "2026-03-01T10:00:00+08:00", "Category": "Executable" }]
+    }
+    ```
+
+    - `categories` takes the same names as list_executables' `-c` option (`executable`, `library`, `script`, `installer`, `other`), separated by commas. Default: `executable`. An unknown name returns `400` with `{ "error": "<message>" }`.
+    - The response's `categories` lists the categories that were searched.
+    - `generatedAt` is an ISO 8601 timestamp of when the list was read, in local time with its time-zone offset.
+    - `items` is always an array, even when empty, with the same fields and order as list_executables.
 - Unknown `/api/` paths return `404` with `{ "error": "<message>" }`.
 - Any other path serves a file of the page (`/` serves the page itself); unknown files return `404`.
 - Only read requests are accepted; methods such as `POST` return `405`.
