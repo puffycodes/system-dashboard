@@ -105,7 +105,7 @@ Identical to the PowerShell version, so they share the same UI:
 | `GET /api/software` | `{ "computerName": "...", "ipAddresses": ["..."], "generatedAt": "<RFC 3339>", "items": [{ "Name": "...", "Version": "..." }] }` |
 | `GET /api/executables?categories=executable,library` | `{ "computerName": "...", "generatedAt": "<RFC 3339>", "categories": ["Executable", "Library"], "items": [{ "Name": "...", "Directory": "...", "Size": 123, "Modified": "...", "Category": "..." }] }` |
 
-`categories` takes `list_executables`' `-c` names (`executable`, `library`, `script`, `installer`, `other` or `all`); the default is `executable`. An unknown name returns `{ "error": "..." }` with a 400 status, and unknown `/api/` routes return one with a 404 status.
+`categories` takes `list_executables`' `-c` names (`executable`, `library`, `script`, `installer`, `other` or `all`), case-sensitively; the default is `executable`. An unknown name or an empty list returns `{ "error": "..." }` with a 400 status, and unknown `/api/` routes return one with a 404 status. Only `GET` and `HEAD` are accepted; other methods return 405.
 
 Requests are served concurrently, so the software list can be refreshed while the executables are being searched.
 

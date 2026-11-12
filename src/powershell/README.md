@@ -40,7 +40,7 @@ The packaging scripts copy `start.cmd`, `server.ps1`, and everything in `modules
 | `GET /api/software` | `{ "computerName": "...", "ipAddresses": ["..."], "generatedAt": "<ISO 8601>", "items": [{ "Name": "...", "Version": "..." }] }` |
 | `GET /api/executables?categories=executable,library` | `{ "computerName": "...", "generatedAt": "<ISO 8601>", "categories": ["Executable", "Library"], "items": [{ "Name": "...", "Directory": "...", "Size": 123, "Modified": "...", "Category": "..." }] }` |
 
-`categories` takes `list_executables`' `-c` names (`executable`, `library`, `script`, `installer`, `other` or `all`); the default is `executable`. Errors come back as `{ "error": "..." }` with a 400 (unknown category), 404 or 500 status.
+`categories` takes `list_executables`' `-c` names (`executable`, `library`, `script`, `installer`, `other` or `all`), case-sensitively; the default is `executable`. Errors come back as `{ "error": "..." }` with a 400 (unknown category or an empty list), 404 or 500 status. Only `GET` and `HEAD` are accepted; other methods return 405.
 
 Requests are handled one at a time, so while the executables are being searched, which takes a minute or more, the software list's Refresh waits for the search to finish. The Go version doesn't have this limit.
 
