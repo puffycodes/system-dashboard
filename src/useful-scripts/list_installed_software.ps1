@@ -95,14 +95,14 @@ switch ($Format) {
         $output = $software | Format-Table -AutoSize | Out-String -Width 4096
         $output = $output.Trim()
         if (-not $NoSystemInfo) {
-            $output = "Host Name:  $hostName`r`nIP Address: $ipText`r`nTimestamp:  $timestamp`r`n`r`n$output"
+            $output = "Host Name:    $hostName`r`nIP Addresses: $ipText`r`nTimestamp:    $timestamp`r`n`r`n$output"
         }
     }
     'csv' {
         # One table only, so the system info goes in extra columns on each row
         $rows = if ($NoSystemInfo) { $software } else {
             $software | Select-Object @{ n = 'HostName'; e = { $hostName } },
-                @{ n = 'IPAddress'; e = { $ipText } },
+                @{ n = 'IPAddresses'; e = { $ipText } },
                 @{ n = 'Timestamp'; e = { $timestamp } }, Name, Version
         }
         $output = $rows | ConvertTo-Csv -NoTypeInformation
@@ -114,7 +114,7 @@ switch ($Format) {
         } else {
             $output = ConvertTo-Json -Depth 3 -InputObject ([pscustomobject]@{
                 HostName  = $hostName
-                IPAddress = [object[]]$ipAddress
+                IPAddresses = [object[]]$ipAddress
                 Timestamp = $timestamp
                 Software  = [object[]]$software
             })
@@ -128,7 +128,7 @@ switch ($Format) {
         } else {
             $title = "Installed software on $(& $enc $hostName)"
             $info = "<table><tr><th>Host Name</th><td>$(& $enc $hostName)</td></tr>" +
-                "<tr><th>IP Address</th><td>$(& $enc $ipText)</td></tr>" +
+                "<tr><th>IP Addresses</th><td>$(& $enc $ipText)</td></tr>" +
                 "<tr><th>Timestamp</th><td>$(& $enc $timestamp)</td></tr></table>"
         }
         $output = $software | ConvertTo-Html -Title $title `

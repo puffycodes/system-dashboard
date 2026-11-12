@@ -46,9 +46,9 @@ if not defined IPS set "IPS=N/A"
 rem Sort and remove duplicates (same app can appear in multiple hives)
 (
     if defined SYSINFO (
-        echo Host Name:  %COMPUTERNAME%
-        echo IP Address: %IPS%
-        echo Timestamp:  %DATE% %TIME%
+        echo Host Name:    %COMPUTERNAME%
+        echo IP Addresses: %IPS%
+        echo Timestamp:    %DATE% %TIME%
         echo(
     )
     set "PREV="

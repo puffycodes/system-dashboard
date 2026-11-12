@@ -108,19 +108,19 @@ In every script, a missing version is shown as `N/A`, and duplicate name + versi
 Unless turned off (`-NoSystemInfo`, or `-n` for `.sh` and `.bat`), the output also gives:
 
 - **Host Name**: the computer name (`uname -n` on Linux).
-- **IP Address**: the addresses of the machine's active network interfaces, IPv4 first. Loopback and link-local addresses (`127.x.x.x`, `::1`, `169.254.x.x`, `fe80::`) are skipped. Shown as `N/A` if there are none.
+- **IP Addresses**: the addresses of the machine's active network interfaces, IPv4 first. Loopback and link-local addresses (`127.x.x.x`, `::1`, `169.254.x.x`, `fe80::`) are skipped. Shown as `N/A` if there are none.
 - **Timestamp**: when the list was made, in ISO 8601 local time with its time-zone offset (e.g. `2026-11-12T10:54:59+08:00`). The batch script uses the system's date and time format instead.
 
 ## Output formats
 
 | Format | Shape | With system information |
 |---|---|---|
-| `text` | Aligned `Name` / `Version` table | `Host Name:`, `IP Address:` and `Timestamp:` lines, then a blank line, before the table |
-| `csv` | Header `"Name","Version"`, all fields quoted | `HostName`, `IPAddress` and `Timestamp` columns before `Name` and `Version`, repeated on each row |
-| `json` | Array of `{"Name": ..., "Version": ...}` objects | Object `{"HostName": ..., "IPAddress": [...], "Timestamp": ..., "Software": [...]}`, with the array under `Software` |
-| `html` | Full page with a title, item count and a `Name` / `Version` table | Title names the host, and a `Host Name` / `IP Address` / `Timestamp` table comes before the item count |
+| `text` | Aligned `Name` / `Version` table | `Host Name:`, `IP Addresses:` and `Timestamp:` lines, then a blank line, before the table |
+| `csv` | Header `"Name","Version"`, all fields quoted | `HostName`, `IPAddresses` and `Timestamp` columns before `Name` and `Version`, repeated on each row |
+| `json` | Array of `{"Name": ..., "Version": ...}` objects | Object `{"HostName": ..., "IPAddresses": [...], "Timestamp": ..., "Software": [...]}`, with the array under `Software` |
+| `html` | Full page with a title, item count and a `Name` / `Version` table | Title names the host, and a `Host Name` / `IP Addresses` / `Timestamp` table comes before the item count |
 
-In text, csv and html, multiple IP addresses are separated by `, `. In json, `IPAddress` is always an array, empty when there are none.
+In text, csv and html, multiple IP addresses are separated by `, `. In json, `IPAddresses` is always an array, empty when there are none.
 
 ## Exit codes
 

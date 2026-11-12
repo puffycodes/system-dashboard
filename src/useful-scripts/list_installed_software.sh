@@ -132,9 +132,9 @@ format_output() {
         END {
             if (fmt == "text") {
                 if (sysinfo) {
-                    print "Host Name:  " host
-                    print "IP Address: " ips
-                    print "Timestamp:  " now
+                    print "Host Name:    " host
+                    print "IP Addresses: " ips
+                    print "Timestamp:    " now
                     print ""
                 }
                 if (w < 4) w = 4
@@ -145,14 +145,14 @@ format_output() {
             } else if (fmt == "csv") {
                 # One table only, so the system info goes in extra columns on each row
                 pre = sysinfo ? csv(host) "," csv(ips) "," csv(now) "," : ""
-                print (sysinfo ? "\"HostName\",\"IPAddress\",\"Timestamp\"," : "") "\"Name\",\"Version\""
+                print (sysinfo ? "\"HostName\",\"IPAddresses\",\"Timestamp\"," : "") "\"Name\",\"Version\""
                 for (i = 1; i <= n; i++) print pre csv(name[i]) "," csv(ver[i])
             } else if (fmt == "json") {
                 ind = ""
                 if (sysinfo) {
                     print "{"
                     printf "  \"HostName\": %s,\n", json(host)
-                    printf "  \"IPAddress\": ["
+                    printf "  \"IPAddresses\": ["
                     if (ips != "N/A") {
                         k = split(ips, ip, /, /)
                         for (j = 1; j <= k; j++) printf "%s%s", (j > 1 ? ", " : ""), json(ip[j])
@@ -176,7 +176,7 @@ format_output() {
                 if (sysinfo) {
                     print "<table>"
                     print "<tr><th>Host Name</th><td>" html(host) "</td></tr>"
-                    print "<tr><th>IP Address</th><td>" html(ips) "</td></tr>"
+                    print "<tr><th>IP Addresses</th><td>" html(ips) "</td></tr>"
                     print "<tr><th>Timestamp</th><td>" html(now) "</td></tr>"
                     print "</table>"
                 }

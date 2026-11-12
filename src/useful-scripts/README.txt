@@ -122,14 +122,15 @@ SYSTEM INFORMATION
 Unless turned off (-NoSystemInfo, or -n for .sh and .bat), the output also
 gives:
 
-  Host Name    The computer name (uname -n on Linux).
-  IP Address   The addresses of the machine's active network interfaces,
-               IPv4 first. Loopback and link-local addresses (127.x.x.x,
-               ::1, 169.254.x.x, fe80::) are skipped. Shown as N/A if there
-               are none.
-  Timestamp    When the list was made, in ISO 8601 local time with its
-               time-zone offset (e.g. 2026-11-12T10:54:59+08:00). The batch
-               script uses the system's date and time format instead.
+  Host Name      The computer name (uname -n on Linux).
+  IP Addresses   The addresses of the machine's active network interfaces,
+                 IPv4 first. Loopback and link-local addresses (127.x.x.x,
+                 ::1, 169.254.x.x, fe80::) are skipped. Shown as N/A if
+                 there are none.
+  Timestamp      When the list was made, in ISO 8601 local time with its
+                 time-zone offset (e.g. 2026-11-12T10:54:59+08:00). The
+                 batch script uses the system's date and time format
+                 instead.
 
 
 OUTPUT FORMATS
@@ -142,17 +143,17 @@ OUTPUT FORMATS
 
 With system information:
 
-  text   "Host Name:", "IP Address:" and "Timestamp:" lines, then a blank
+  text   "Host Name:", "IP Addresses:" and "Timestamp:" lines, then a blank
          line, before the table
-  csv    HostName, IPAddress and Timestamp columns before Name and Version,
+  csv    HostName, IPAddresses and Timestamp columns before Name and Version,
          repeated on each row
-  json   Object {"HostName": ..., "IPAddress": [...], "Timestamp": ...,
+  json   Object {"HostName": ..., "IPAddresses": [...], "Timestamp": ...,
          "Software": [...]}, with the array under Software
-  html   Title names the host, and a Host Name / IP Address / Timestamp table
+  html   Title names the host, and a Host Name / IP Addresses / Timestamp table
          comes before the item count
 
 In text, csv and html, multiple IP addresses are separated by ", ". In json,
-IPAddress is always an array, empty when there are none.
+IPAddresses is always an array, empty when there are none.
 
 
 EXIT CODES
