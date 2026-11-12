@@ -14,6 +14,11 @@
         GET /               -> www/index.html
         GET /<file>         -> static file from www/
         GET /api/software   -> { computerName, ipAddresses, generatedAt, items: [{ Name, Version }] }
+        GET /api/executables?categories=executable,library
+                            -> { computerName, generatedAt, categories, items: [{ Name, Directory, Size, Modified, Category }] }
+
+    Requests are handled one at a time, so while the executables are being
+    searched (which can take minutes) other requests wait.
 
 .PARAMETER Port
     Port to listen on. Default 8080.
@@ -132,6 +137,35 @@ function Send-StaticFile {
     Send-Response $Response 200 $type ([IO.File]::ReadAllBytes($fullPath))
 }
 
+# The API's category names, as in list_executables' -c option, in list order
+$executableCategories = [ordered]@{
+    executable = 'Executable'
+    library    = 'Library'
+    script     = 'Script'
+    installer  = 'Installer'
+    other      = 'Other'
+}
+
+# Turns "executable,library" into category names, in list order. "all" selects
+# every category. Throws on an unknown or missing name.
+function ConvertTo-CategoryList {
+    param([string]$Text)
+    $want = @{}
+    foreach ($part in $Text.Split(',')) {
+        $part = $part.Trim()
+        if (-not $part) { continue }
+        if ($part -ceq 'all') {
+            foreach ($name in $executableCategories.Values) { $want[$name] = $true }
+        } elseif ($executableCategories.Contains($part) -and $part -ceq $part.ToLowerInvariant()) {
+            $want[$executableCategories[$part]] = $true
+        } else {
+            throw "invalid category: $part"
+        }
+    }
+    if (-not $want.Count) { throw 'no category given' }
+    @($executableCategories.Values | Where-Object { $want[$_] })
+}
+
 function Invoke-Request {
     param([System.Net.HttpListenerContext]$Context)
 
@@ -149,6 +183,24 @@ function Invoke-Request {
                 generatedAt  = (Get-Date).ToString('o')
                 items        = @(Get-InstalledSoftware)
             })
+        } elseif ($path -eq '/api/executables') {
+            $values = $request.QueryString.GetValues('categories')
+            $param = if ($null -eq $values) { 'executable' } else { $values -join ',' }
+            try {
+                $categories = ConvertTo-CategoryList $param
+            } catch {
+                Send-Json $response @{ error = "$($_.Exception.Message)" } 400
+                $categories = $null
+            }
+            if ($categories) {
+                $generatedAt = (Get-Date).ToString('o')
+                Send-Json $response ([ordered]@{
+                    computerName = $env:COMPUTERNAME
+                    generatedAt  = $generatedAt
+                    categories   = @($categories)
+                    items        = @(Get-Executable -Category $categories)
+                })
+            }
         } elseif ($path.StartsWith('/api/')) {
             Send-Json $response @{ error = "Unknown endpoint: $path" } 404
         } else {

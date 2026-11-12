@@ -6,7 +6,7 @@ Tools for inspecting a machine without installing any extra software (no Python,
 
 | Path | What it is |
 |---|---|
-| [`src/powershell/`](src/powershell/) | The system dashboard: a local web page served by Windows PowerShell 5.1. Shows the host name, IP addresses and time of the last read, and the installed software in a filterable, sortable table that can be downloaded as text, csv, json or html. |
+| [`src/powershell/`](src/powershell/) | The system dashboard: a local web page served by Windows PowerShell 5.1. Shows the host name and IP addresses, with a tab for the installed software and a tab for the executable files on the local disks, searched on request by category. Each list is a filterable, sortable table that can be downloaded as text, csv, json or html. |
 | [`src/go/`](src/go/) | The same dashboard as a single self-contained binary for Windows or Linux, written in Go. Build it once, then copy it to any machine. |
 | [`src/useful-scripts/`](src/useful-scripts/) | Standalone scripts for PowerShell and POSIX `sh` (Linux). `list_installed_software` (also for cmd) lists the installed software after the host name, IP addresses and timestamp (which an option turns off). `list_executables` lists the executable files on the local disks with their directory, size, last modified time and category (executable, dynamic library, script, installer or other). Output as text, csv, json or html. |
 | [`scripts/`](scripts/) | `build.ps1` (Windows) and `build.sh` (Linux/macOS): build the bare Go binaries into `src/go/`. `package.ps1` and `package.sh`: build the dashboard and package the files each target machine needs into `dist/`. |

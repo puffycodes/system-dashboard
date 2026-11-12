@@ -87,6 +87,9 @@ CGO_ENABLED=0 GOOS=linux go test -c -o linux.test .    # then in WSL: ./linux.te
 | `server.go` | HTTP routes (`/api/*` and the embedded static files), the shared `Software` type, and `ipAddresses` |
 | `software_windows.go` | `getInstalledSoftware` on Windows: the registry Uninstall keys |
 | `software_linux.go` | `getInstalledSoftware` on Linux: dpkg / rpm / pacman / apk, plus Flatpak and Snap |
+| `executables.go` | The shared `Executable` type, the category names, and sorting |
+| `executables_windows.go` | `findExecutables` on Windows: the fixed drives, by file extension |
+| `executables_linux.go` | `findExecutables` on Linux: the local disks' filesystems, by execute bit, name and first bytes |
 | `browser_windows.go`, `browser_linux.go` | Open the default browser (`rundll32` / `xdg-open`) |
 | `www/` | The UI, embedded at build time. A copy of `src/powershell/www/` |
 | `*_test.go` | Tests (`_windows` / `_linux` files run only on that OS) |
@@ -100,24 +103,33 @@ Identical to the PowerShell version, so they share the same UI:
 | Route | Returns |
 |---|---|
 | `GET /api/software` | `{ "computerName": "...", "ipAddresses": ["..."], "generatedAt": "<RFC 3339>", "items": [{ "Name": "...", "Version": "..." }] }` |
+| `GET /api/executables?categories=executable,library` | `{ "computerName": "...", "generatedAt": "<RFC 3339>", "categories": ["Executable", "Library"], "items": [{ "Name": "...", "Directory": "...", "Size": 123, "Modified": "...", "Category": "..." }] }` |
 
-Unknown `/api/` routes return `{ "error": "..." }` with a 404 status.
+`categories` takes `list_executables`' `-c` names (`executable`, `library`, `script`, `installer`, `other` or `all`); the default is `executable`. An unknown name returns `{ "error": "..." }` with a 400 status, and unknown `/api/` routes return one with a 404 status.
+
+Requests are served concurrently, so the software list can be refreshed while the executables are being searched.
 
 The software lists match the other implementations entry for entry:
 
 - **Windows:** the same as [`list_installed_software.ps1`](../useful-scripts/list_installed_software.ps1) and the PowerShell dashboard: the same registry keys and filtering, de-duplicated case-insensitively.
 - **Linux:** the same as [`list_installed_software.sh`](../useful-scripts/list_installed_software.sh): the same sources, de-duplicated and sorted byte-wise like `LC_ALL=C sort -u`. On Linux, names are package names (e.g. `libc6`), and the list includes libraries.
 
+The executables lists match `list_executables` file for file, in the same order:
+
+- **Windows:** the same as [`list_executables.ps1`](../useful-scripts/list_executables.ps1) and the PowerShell dashboard: the fixed drives, categories by extension, and the order of `Sort-Object`, which `compareLikeSortObject` reproduces with the Windows `CompareStringEx` function.
+- **Linux:** the same as [`list_executables.sh`](../useful-scripts/list_executables.sh): the same filesystems from `/proc/self/mountinfo`, the same categories, and byte-wise order.
+
 ## Keeping in sync
 
 - **UI:** `go:embed` can't reach files outside this folder, so `www/` is a copy of `src/powershell/www/`. When you change the UI, change both copies, or copy one over the other.
 - **Software lists:** if you change what the `.ps1` or `.sh` script lists, change `software_windows.go` or `software_linux.go` to match.
-- **Download formats:** `downloadFormats` in `www/app.js` writes the same files as [`list_installed_software.sh`](../useful-scripts/list_installed_software.sh). If you change a script's output format, change it there too.
+- **Executables lists:** if you change what `list_executables.ps1` or `.sh` lists, or its categories, change `executables_windows.go` or `executables_linux.go`, and `Get-Executable` in the PowerShell version, to match.
+- **Download formats:** `softwareFormats` and `executableFormats` in `www/app.js` write the same files as [`list_installed_software.sh`](../useful-scripts/list_installed_software.sh) and [`list_executables.sh`](../useful-scripts/list_executables.sh). If you change a script's output format, change it there too.
 - **IP addresses:** `ipAddresses` in `server.go` skips the same addresses as the `.ps1` and `.sh` scripts and `Get-IPAddress` in the PowerShell version: loopback and link-local. Like the scripts, it counts only interfaces that are up on Windows, and every interface on Linux. If you change one, change the others to match.
 
-## Adding a panel
+## Adding a tab
 
 1. Describe the feature in [docs/spec/system-dashboard.md](../../docs/spec/system-dashboard.md), which both implementations follow.
-2. Add a collector function for each OS (`<name>_windows.go` and `<name>_linux.go`). Put shared types in `server.go`.
+2. Add a collector function for each OS (`<name>_windows.go` and `<name>_linux.go`). Put shared types in `server.go` or a shared `<name>.go`.
 3. Add a route for it in `newHandler` in `server.go`, and a test in `server_test.go`.
-4. Add a `<section class="card">` to `www/index.html` and a loader in `www/app.js`, in both UI copies.
+4. In `www/index.html`, add a `role="tab"` button to the tab list and a `<section class="card" role="tabpanel">` for it; in `www/app.js`, add its loader. Do this in both UI copies.

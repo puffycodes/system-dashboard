@@ -60,7 +60,7 @@ func main() {
 	}
 
 	srv := &http.Server{
-		Handler:           newHandler(getInstalledSoftware),
+		Handler:           newHandler(getInstalledSoftware, findExecutables),
 		ReadHeaderTimeout: 10 * time.Second,
 	}
 

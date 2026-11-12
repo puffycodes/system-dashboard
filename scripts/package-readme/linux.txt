@@ -3,8 +3,9 @@ SYSTEM DASHBOARD (Linux)
 
 Version @VERSION@
 
-A local web page that shows this machine's host name, IP addresses and
-installed software. The software list can be filtered, sorted and
+A local web page that shows this machine's host name and IP addresses, its
+installed software and, when you press Scan on the Executables tab, the
+executable files on its local disks. Each list can be filtered, sorted and
 downloaded as text, csv, json or html.
 
 The whole dashboard is in one file:

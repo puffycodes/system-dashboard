@@ -3,9 +3,13 @@ SYSTEM DASHBOARD (PowerShell version)
 
 Version @VERSION@
 
-A local web page that shows this machine's host name, IP addresses and
-installed software. The software list can be filtered, sorted and
+A local web page that shows this machine's host name and IP addresses, its
+installed software and, when you press Scan on the Executables tab, the
+executable files on its local disks. Each list can be filtered, sorted and
 downloaded as text, csv, json or html.
+
+Searching for executables takes a minute or more, and the page waits for it
+before doing anything else.
 
 It runs on Windows PowerShell 5.1, which comes with Windows 10 and 11, so
 nothing needs to be installed.

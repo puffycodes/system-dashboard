@@ -67,4 +67,78 @@ function Get-IPAddress {
     @(@($v4) + @($v6) | ForEach-Object { $_.ToString() } | Select-Object -Unique)
 }
 
-Export-ModuleMember -Function Get-InstalledSoftware, Get-IPAddress
+function Get-Executable {
+    <#
+    .SYNOPSIS
+        Lists the executable files on the fixed (local) drives.
+
+    .DESCRIPTION
+        Same search and categories as src/useful-scripts/list_executables.ps1:
+        each file's category comes from its extension, folders that can't be
+        read are skipped, and junctions and symbolic links to folders are not
+        followed. Sorted by directory, then name. See
+        docs/spec/list_executables.md.
+
+    .PARAMETER Category
+        The categories to list: any of Executable, Library, Script, Installer
+        and Other.
+    #>
+    [CmdletBinding()]
+    param(
+        [ValidateSet('Executable', 'Library', 'Script', 'Installer', 'Other')]
+        [string[]]$Category = @('Executable')
+    )
+
+    # The category of each extension (hashtable keys are case-insensitive)
+    $categories = @{}
+    foreach ($ext in '.exe', '.com', '.scr') { $categories[$ext] = 'Executable' }
+    foreach ($ext in '.dll', '.ocx') { $categories[$ext] = 'Library' }
+    foreach ($ext in '.bat', '.cmd', '.ps1', '.vbs', '.vbe', '.js', '.jse', '.wsf', '.wsh') { $categories[$ext] = 'Script' }
+    foreach ($ext in '.msi', '.msp', '.msix', '.msixbundle', '.appx', '.appxbundle') { $categories[$ext] = 'Installer' }
+    # Other: whatever else Windows runs without its extension being typed
+    foreach ($ext in "$env:PATHEXT".Split(';')) {
+        if ($ext -match '^\.\w+$' -and -not $categories.ContainsKey($ext)) { $categories[$ext] = 'Other' }
+    }
+
+    $wanted = @{}
+    foreach ($ext in $categories.Keys) {
+        if ($Category -contains $categories[$ext]) { $wanted[$ext] = $categories[$ext] }
+    }
+
+    $invariant = [Globalization.CultureInfo]::InvariantCulture
+    $files = New-Object System.Collections.Generic.List[object]
+
+    # Walk each drive with an explicit stack, so a folder that can't be read
+    # is skipped instead of stopping the search
+    $stack = New-Object 'System.Collections.Generic.Stack[IO.DirectoryInfo]'
+    foreach ($drive in [IO.DriveInfo]::GetDrives()) {
+        if ($drive.IsReady -and $drive.DriveType -eq 'Fixed') { $stack.Push($drive.RootDirectory) }
+    }
+
+    while ($stack.Count) {
+        $dir = $stack.Pop()
+        try {
+            foreach ($entry in $dir.EnumerateFileSystemInfos()) {
+                if ($entry -is [IO.DirectoryInfo]) {
+                    # Junctions and folder symlinks lead to folders searched elsewhere
+                    if (-not ($entry.Attributes -band [IO.FileAttributes]::ReparsePoint)) { $stack.Push($entry) }
+                } elseif ($wanted.ContainsKey($entry.Extension)) {
+                    $files.Add([pscustomobject]@{
+                        Name      = $entry.Name
+                        Directory = $entry.DirectoryName
+                        Size      = $entry.Length
+                        # ISO 8601, local time with its time-zone offset
+                        Modified  = $entry.LastWriteTime.ToString('yyyy-MM-ddTHH:mm:sszzz', $invariant)
+                        Category  = $wanted[$entry.Extension]
+                    })
+                }
+            }
+        } catch [UnauthorizedAccessException], [IO.IOException], [Security.SecurityException] {
+            # Unreadable folder (e.g. System Volume Information) or path too long: skip it
+        }
+    }
+
+    @($files | Sort-Object -Property Directory, Name -Unique)
+}
+
+Export-ModuleMember -Function Get-InstalledSoftware, Get-IPAddress, Get-Executable

@@ -10,6 +10,7 @@ import (
 	"os"
 	"path"
 	"runtime"
+	"strings"
 	"time"
 )
 
@@ -40,7 +41,12 @@ var contentTypes = map[string]string{
 //	GET /               -> www/index.html
 //	GET /<file>         -> static file from www/
 //	GET /api/software   -> { computerName, ipAddresses, generatedAt, items: [{ Name, Version }] }
-func newHandler(listSoftware func() []Software) http.Handler {
+//	GET /api/executables?categories=executable,library
+//	                    -> { computerName, generatedAt, categories, items: [{ Name, Directory, Size, Modified, Category }] }
+//
+// Requests are served concurrently, so the page stays responsive while the
+// executables are being searched.
+func newHandler(listSoftware func() []Software, listExecutables func(map[string]bool) []Executable) http.Handler {
 	www, err := fs.Sub(wwwFiles, "www")
 	if err != nil {
 		panic(err)
@@ -57,6 +63,28 @@ func newHandler(listSoftware func() []Software) http.Handler {
 			"computerName": computerName(),
 			"ipAddresses":  ipAddresses(),
 			"generatedAt":  time.Now().Format(time.RFC3339Nano),
+			"items":        items,
+		})
+	})
+	mux.HandleFunc("/api/executables", func(w http.ResponseWriter, r *http.Request) {
+		param := "executable" // list_executables' default
+		if values, ok := r.URL.Query()["categories"]; ok {
+			param = strings.Join(values, ",")
+		}
+		want, err := parseCategories(param)
+		if err != nil {
+			writeJSON(w, http.StatusBadRequest, map[string]string{"error": err.Error()})
+			return
+		}
+		generatedAt := time.Now()
+		items := listExecutables(want)
+		if items == nil {
+			items = []Executable{}
+		}
+		writeJSON(w, http.StatusOK, map[string]any{
+			"computerName": computerName(),
+			"generatedAt":  generatedAt.Format(time.RFC3339Nano),
+			"categories":   categoryNames(want),
 			"items":        items,
 		})
 	})

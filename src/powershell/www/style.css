@@ -70,6 +70,40 @@ h2 { margin: 0; font-size: 16px; }
 .info dt { color: var(--muted); }
 .info dd { margin: 0; overflow-wrap: anywhere; }
 
+.tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  border-bottom: 1px solid var(--border);
+  margin-bottom: -8px; /* sit closer to the panel below than the grid gap */
+}
+.tabs [role="tab"] {
+  background: none;
+  border: none;
+  border-bottom: 2px solid transparent;
+  border-radius: 0;
+  padding: 6px 12px;
+  color: var(--muted);
+}
+.tabs [role="tab"]:hover { color: var(--text); }
+.tabs [role="tab"][aria-selected="true"] {
+  color: var(--text);
+  border-bottom-color: var(--accent);
+  font-weight: 600;
+}
+
+.categories {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 16px;
+  margin: 12px 0 0;
+  padding: 0;
+  border: none;
+}
+.categories legend { float: left; margin-right: 8px; color: var(--muted); }
+.categories label { display: flex; align-items: center; gap: 4px; white-space: nowrap; }
+.categories input { width: auto; }
+
 .badge {
   padding: 0 8px;
   border-radius: 999px;
@@ -77,6 +111,7 @@ h2 { margin: 0; font-size: 16px; }
   color: var(--muted);
   font-size: 12px;
 }
+.badge:empty { display: none; }
 
 input, button, select {
   font: inherit;
@@ -103,4 +138,6 @@ th { cursor: pointer; user-select: none; white-space: nowrap; }
 th[aria-sort="ascending"]::after { content: " \25B2"; font-size: 10px; }
 th[aria-sort="descending"]::after { content: " \25BC"; font-size: 10px; }
 td:last-child { white-space: nowrap; font-variant-numeric: tabular-nums; }
+th.num, td.num { text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; }
+td.nowrap { white-space: nowrap; font-variant-numeric: tabular-nums; }
 tbody tr:hover { background: var(--row-hover); }

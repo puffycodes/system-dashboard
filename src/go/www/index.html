@@ -22,14 +22,19 @@
         <dd id="system-host">…</dd>
         <dt>IP Addresses</dt>
         <dd id="system-ips">…</dd>
-        <dt>Timestamp</dt>
-        <dd id="system-time">…</dd>
       </dl>
     </section>
 
-    <section class="card" aria-labelledby="software-title">
+    <div class="tabs" role="tablist" aria-label="Lists">
+      <button id="tab-software" type="button" role="tab" data-tab="software"
+        aria-controls="panel-software" aria-selected="true">Installed Software</button>
+      <button id="tab-executables" type="button" role="tab" data-tab="executables"
+        aria-controls="panel-executables" aria-selected="false" tabindex="-1">Executables</button>
+    </div>
+
+    <section id="panel-software" class="card" role="tabpanel" aria-labelledby="tab-software">
       <div class="card-head">
-        <h2 id="software-title">Installed software</h2>
+        <h2>Installed software</h2>
         <span id="software-count" class="badge"></span>
         <div class="spacer"></div>
         <input id="software-filter" type="search" placeholder="Filter by name or version" aria-label="Filter installed software">
@@ -46,6 +51,7 @@
         </div>
       </div>
 
+      <p id="software-time" class="muted"></p>
       <p id="software-status" class="muted" role="status"></p>
 
       <div class="table-wrap">
@@ -59,6 +65,54 @@
           <tbody id="software-body"></tbody>
         </table>
       </div>
+    </section>
+
+    <section id="panel-executables" class="card" role="tabpanel" aria-labelledby="tab-executables" hidden>
+      <div class="card-head">
+        <h2>Executables</h2>
+        <span id="executables-count" class="badge"></span>
+        <div class="spacer"></div>
+        <input id="executables-filter" type="search" placeholder="Filter by name or directory" aria-label="Filter executables">
+        <button id="executables-scan" type="button">Scan</button>
+        <div class="download">
+          <label for="executables-format">Download Format</label>
+          <select id="executables-format">
+            <option value="text">text</option>
+            <option value="csv">csv</option>
+            <option value="json">json</option>
+            <option value="html">html</option>
+          </select>
+          <button id="executables-download" type="button" disabled>Download</button>
+        </div>
+      </div>
+
+      <fieldset class="categories">
+        <legend>Categories</legend>
+        <label><input type="checkbox" name="category" value="executable" checked> Executables</label>
+        <label><input type="checkbox" name="category" value="library"> Dynamic Libraries</label>
+        <label><input type="checkbox" name="category" value="script"> Scripts</label>
+        <label><input type="checkbox" name="category" value="installer"> Installers</label>
+        <label><input type="checkbox" name="category" value="other"> Others</label>
+      </fieldset>
+
+      <p id="executables-time" class="muted"></p>
+      <p id="executables-status" class="muted" role="status">Choose the categories and press Scan. Searching the local disks can take several minutes.</p>
+
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th scope="col" data-sort="Name">Name</th>
+              <th scope="col" data-sort="Directory">Directory</th>
+              <th scope="col" data-sort="Size" class="num">Size</th>
+              <th scope="col" data-sort="Modified">Modified</th>
+              <th scope="col" data-sort="Category">Category</th>
+            </tr>
+          </thead>
+          <tbody id="executables-body"></tbody>
+        </table>
+      </div>
+      <p id="executables-more" class="muted" hidden></p>
     </section>
   </main>
 

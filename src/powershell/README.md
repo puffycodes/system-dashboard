@@ -27,7 +27,7 @@ Run `.\scripts\package.ps1 -SkipGo` from the repo root (or without `-SkipGo` to 
 | Path | Purpose |
 |---|---|
 | `server.ps1` | HTTP server: routes `/api/*` to collectors, serves everything else from `www/` |
-| `modules/SystemDashboard.psm1` | Data collectors (`Get-InstalledSoftware`, `Get-IPAddress`) that return plain objects |
+| `modules/SystemDashboard.psm1` | Data collectors (`Get-InstalledSoftware`, `Get-IPAddress`, `Get-Executable`) that return plain objects |
 | `www/index.html`, `www/app.js`, `www/style.css` | The UI: plain HTML/JS/CSS, no build step or libraries |
 | `start.cmd` | Double-click launcher (bypasses the execution policy, opens the browser) |
 
@@ -38,8 +38,11 @@ The packaging scripts copy `start.cmd`, `server.ps1`, and everything in `modules
 | Route | Returns |
 |---|---|
 | `GET /api/software` | `{ "computerName": "...", "ipAddresses": ["..."], "generatedAt": "<ISO 8601>", "items": [{ "Name": "...", "Version": "..." }] }` |
+| `GET /api/executables?categories=executable,library` | `{ "computerName": "...", "generatedAt": "<ISO 8601>", "categories": ["Executable", "Library"], "items": [{ "Name": "...", "Directory": "...", "Size": 123, "Modified": "...", "Category": "..." }] }` |
 
-Errors come back as `{ "error": "..." }` with a 404 or 500 status.
+`categories` takes `list_executables`' `-c` names (`executable`, `library`, `script`, `installer`, `other` or `all`); the default is `executable`. Errors come back as `{ "error": "..." }` with a 400 (unknown category), 404 or 500 status.
+
+Requests are handled one at a time, so while the executables are being searched, which takes a minute or more, the software list's Refresh waits for the search to finish. The Go version doesn't have this limit.
 
 ## Keeping in sync with the Go version
 
@@ -47,13 +50,14 @@ Errors come back as `{ "error": "..." }` with a 404 or 500 status.
 
 - **UI:** `src/go/www/` is a copy of `www/`. When you change the UI, change both copies, or copy one over the other.
 - **Software list:** `Get-InstalledSoftware` and `src/go/software_windows.go` use the same registry keys and filtering as [`list_installed_software.ps1`](../useful-scripts/list_installed_software.ps1). If you change one, change the others to match.
+- **Executables list:** `Get-Executable` and `src/go/executables_windows.go` use the same drives, categories and order as [`list_executables.ps1`](../useful-scripts/list_executables.ps1). If you change one, change the others to match.
 - **IP addresses:** `Get-IPAddress` and `ipAddresses` in `src/go/server.go` skip the same addresses as [`list_installed_software.ps1`](../useful-scripts/list_installed_software.ps1) and `.sh`. If you change one, change the others to match.
-- **Download formats:** `downloadFormats` in `www/app.js` writes the same files as [`list_installed_software.sh`](../useful-scripts/list_installed_software.sh). If you change a script's output format, change it there too.
+- **Download formats:** `softwareFormats` and `executableFormats` in `www/app.js` write the same files as [`list_installed_software.sh`](../useful-scripts/list_installed_software.sh) and [`list_executables.sh`](../useful-scripts/list_executables.sh). If you change a script's output format, change it there too.
 
-## Adding a panel
+## Adding a tab
 
 1. Describe the feature in [docs/spec/system-dashboard.md](../../docs/spec/system-dashboard.md), which both implementations follow.
 2. Add a collector function to `modules/SystemDashboard.psm1` and include it in `Export-ModuleMember`.
 3. Add a route for it in `Invoke-Request` in `server.ps1`.
-4. Add a `<section class="card">` to `www/index.html` and a loader in `www/app.js`.
-5. Add the same panel to the Go version (see [src/go/README.md](../go/README.md#adding-a-panel)), or note that it's PowerShell-only.
+4. In `www/index.html`, add a `role="tab"` button to the tab list and a `<section class="card" role="tabpanel">` for it; in `www/app.js`, add its loader.
+5. Add the same tab to the Go version (see [src/go/README.md](../go/README.md#adding-a-tab)), or note that it's PowerShell-only.
