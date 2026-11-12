@@ -34,6 +34,13 @@
         <div class="spacer"></div>
         <input id="software-filter" type="search" placeholder="Filter by name or version" aria-label="Filter installed software">
         <button id="software-refresh" type="button">Refresh</button>
+        <select id="software-format" aria-label="Download format">
+          <option value="text">text</option>
+          <option value="csv">csv</option>
+          <option value="json">json</option>
+          <option value="html">html</option>
+        </select>
+        <button id="software-download" type="button" disabled>Download</button>
       </div>
 
       <p id="software-status" class="muted" role="status"></p>

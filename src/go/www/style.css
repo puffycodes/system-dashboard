@@ -74,7 +74,7 @@ h2 { margin: 0; font-size: 16px; }
   font-size: 12px;
 }
 
-input, button {
+input, button, select {
   font: inherit;
   color: inherit;
   background: var(--bg);
