@@ -23,6 +23,10 @@ A local web dashboard showing information about the machine it runs on.
 
 ## Features
 
+- Show information about the system, as in [list_installed_software](list_installed_software.md):
+    - Host Name, IP Addresses, and the timestamp of when the list was last read.
+    - Read together with the installed software, so Refresh updates it too.
+
 - Retrieve a list of the software installed on the machine.
     - Same entries as [list_installed_software](list_installed_software.md): name and version, a missing version shown as `N/A`, and duplicate name + version entries listed once.
     - Display them in a table.
@@ -32,7 +36,6 @@ A local web dashboard showing information about the machine it runs on.
     - Filter the table by text matching the name or version (case-insensitive).
     - Show the number of items, or `<shown> of <total>` while a filter is applied.
     - Refresh button to re-read the list from the machine.
-    - Show the computer name and when the list was last read.
     - Show a loading message while the list is read, and an error message if it can't be loaded.
 
 ## User interface
@@ -51,12 +54,14 @@ The page gets its data from a JSON API on the same server.
     ```json
     {
       "computerName": "MY-PC",
+      "ipAddresses": ["192.168.1.10"],
       "generatedAt": "2026-10-26T11:20:17.123+08:00",
       "items": [{ "Name": "Git", "Version": "2.39.1" }]
     }
     ```
 
     - `generatedAt` is an ISO 8601 timestamp of when the list was read, in local time with its time-zone offset.
+    - `ipAddresses` lists the machine's IP addresses, IPv4 first, the same as list_installed_software. It is always an array, even when empty.
     - `items` is always an array, even when empty.
 - Unknown `/api/` paths return `404` with `{ "error": "<message>" }`.
 - Any other path serves a file of the page (`/` serves the page itself); unknown files return `404`.
