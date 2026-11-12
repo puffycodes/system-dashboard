@@ -8,7 +8,8 @@ system already ships with.
                             the host name, IP addresses and timestamp.
                             list_installed_software.ps1, .sh, .bat
   List executables          The executable files on the local disks: name,
-                            directory, size and last modified time.
+                            directory, size, last modified time and
+                            category.
                             list_executables.ps1, .sh
 
 The examples below are run from this folder (src/useful-scripts/).
@@ -188,7 +189,8 @@ LIST EXECUTABLES
 ================
 
 Scripts that list the executable files on a machine's local disks, with each
-file's name, directory, size and last modified time.
+file's name, directory, size, last modified time and category. Dynamic
+libraries are left out unless you ask for them.
 Requirements: ../../docs/spec/list_executables.md
 
   Script                 Platform                    Formats                 Default output
@@ -206,6 +208,7 @@ POWERSHELL (WINDOWS)
 
   .\list_executables.ps1 [-Format text|csv|json|html] [-OutFile <path>]
                          [-Path <folder>[, ...]] [-AllDrives] [-Extension <ext>[, ...]]
+                         [-IncludeLibraries]
 
   -Format      Output format: text (default), csv, json or html.
   -OutFile     File to write to (UTF-8). If omitted, output is printed.
@@ -214,12 +217,15 @@ POWERSHELL (WINDOWS)
                ready. Ignored with -Path.
   -Extension   File extensions that count as executable, with or without the
                dot. Default: .exe .com .bat .cmd .ps1 .msi
+  -IncludeLibraries
+               Also list dynamic libraries (.dll files).
 
 Examples:
 
   .\list_executables.ps1 -Format csv -OutFile executables.csv
   .\list_executables.ps1 -Path 'C:\Program Files', D:\Tools
-  .\list_executables.ps1 -Extension exe, dll -Format json -OutFile executables.json
+  .\list_executables.ps1 -IncludeLibraries -Format json -OutFile executables.json
+  .\list_executables.ps1 -Extension exe, js
 
 Help: Get-Help .\list_executables.ps1 -Full
 
@@ -227,12 +233,13 @@ Help: Get-Help .\list_executables.ps1 -Full
 SH (LINUX)
 ----------
 
-  sh list_executables.sh [-f text|csv|json|html] [-o output_file] [-a] [-p folder]...
+  sh list_executables.sh [-f text|csv|json|html] [-o output_file] [-a] [-l] [-p folder]...
 
   -f   Output format: text (default), csv, json or html.
   -o   File to write to. If omitted, output is printed.
   -a   Also search network and other mounted filesystems, except virtual
        ones such as /proc and /sys.
+  -l   Also list dynamic libraries (*.so and *.so.* files).
   -p   Search this folder instead of the local disks. Repeat it for more
        folders.
   -h   Show usage.
@@ -241,6 +248,7 @@ Examples:
 
   sudo sh list_executables.sh -f csv -o executables.csv
   sh list_executables.sh -p /usr/local/bin -p /opt
+  sh list_executables.sh -l -f json -o executables.json
 
 Like list_installed_software.sh, it refuses to be sourced. It works with GNU
 or BusyBox tools.
@@ -249,18 +257,37 @@ or BusyBox tools.
 WHAT COUNTS AS AN EXECUTABLE
 ----------------------------
 
-Windows: a file whose extension is in the -Extension list. The default list
-is programs and scripts Windows runs directly, plus PowerShell scripts and
-installers; DLLs and .js files are left out unless you add them. Junctions
+Windows: a file whose extension is in the -Extension list, plus .dll files
+with -IncludeLibraries. The default list is programs and scripts Windows runs
+directly, plus PowerShell scripts and installers; .js and other script types
+are left out unless you add them. Junctions
 and symbolic links to folders are not followed, so no folder is searched
 twice. The local drives are the fixed ones (C: and other internal disks).
 
-Linux: a regular file with any execute permission bit set. Symbolic links
+Linux: a regular file with any execute permission bit set. Dynamic libraries
+(*.so and *.so.*) are left out, even when they have an execute bit; with -l
+they are all listed, whatever their permissions. Symbolic links
 aren't listed; the files they point to are. The local disks are the
 filesystems on a /dev/ block device, plus ZFS, so network mounts, tmpfs,
 /proc and, in WSL, the Windows drives under /mnt/ are left out. Each
 filesystem is searched once, even if it's mounted in several places, and the
 search never crosses into another filesystem, including from a -p folder.
+
+
+CATEGORIES
+----------
+
+  Category     Windows                          Linux
+  -----------  -------------------------------  ------------------------------
+  Executable   .exe .com .scr                   Any other executable file
+                                                (usually an ELF program)
+  Script       .bat .cmd .ps1 .vbs .js .wsf     A file starting with #!
+  Installer    .msi .msp
+  Library      .dll .ocx                        *.so, *.so.*
+  Other        Any other extension given
+               with -Extension
+
+On Linux, a file that can't be read is counted as an Executable.
 
 
 FIELDS AND OUTPUT FORMATS
@@ -271,14 +298,16 @@ FIELDS AND OUTPUT FORMATS
   Size        Size in bytes
   Modified    Last modified time, in ISO 8601 local time with its time-zone
               offset (e.g. 2026-11-12T10:54:59+08:00)
+  Category    What kind of file it is (see CATEGORIES above)
 
 Files are sorted by directory, then name, and a file found twice (e.g. from
 overlapping -Path folders) is listed once.
 
-  text   Aligned Name / Directory / Size / Modified table
-  csv    Header "Name","Directory","Size","Modified", all fields quoted
+  text   Aligned Name / Directory / Size / Modified / Category table
+  csv    Header "Name","Directory","Size","Modified","Category", all fields
+         quoted
   json   Array of {"Name": ..., "Directory": ..., "Size": <number>,
-         "Modified": ...} objects
+         "Modified": ..., "Category": ...} objects
   html   Full page titled "Executable files", with the file count and a table
 
 With BusyBox, whose stat doesn't report time zones, Modified uses the

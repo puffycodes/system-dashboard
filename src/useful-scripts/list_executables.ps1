@@ -1,10 +1,13 @@
 <#
 .SYNOPSIS
-    Lists the executable files on the local disks (name, directory, size and
-    last modified time).
+    Lists the executable files on the local disks (name, directory, size,
+    last modified time and category).
 
 .DESCRIPTION
     Searches every fixed (local) drive for files with an executable extension.
+    Each file's category comes from its extension: Executable (.exe .com .scr),
+    Script (.bat .cmd .ps1 .vbs .js .wsf), Installer (.msi .msp) or Library
+    (.dll .ocx). Other extensions given with -Extension are Other.
     Folders that can't be read are skipped, so run it as administrator to see
     everything. Junctions and symbolic links to folders are not followed, so
     no folder is searched twice.
@@ -27,10 +30,14 @@
     File extensions that count as executable, with or without the dot.
     Default: .exe .com .bat .cmd .ps1 .msi
 
+.PARAMETER IncludeLibraries
+    Also list dynamic libraries (.dll files).
+
 .EXAMPLE
     .\list_executables.ps1
     .\list_executables.ps1 -Format csv -OutFile executables.csv
     .\list_executables.ps1 -Path 'C:\Program Files', D:\Tools
+    .\list_executables.ps1 -IncludeLibraries
     .\list_executables.ps1 -Extension exe, dll
 #>
 [CmdletBinding()]
@@ -44,7 +51,9 @@ param(
 
     [switch]$AllDrives,
 
-    [string[]]$Extension = @('.exe', '.com', '.bat', '.cmd', '.ps1', '.msi')
+    [string[]]$Extension = @('.exe', '.com', '.bat', '.cmd', '.ps1', '.msi'),
+
+    [switch]$IncludeLibraries
 )
 
 $ErrorActionPreference = 'Stop'
@@ -58,6 +67,13 @@ if (-not $Path) {
 # Compared case-insensitively, with or without the leading dot
 $extensions = New-Object 'System.Collections.Generic.HashSet[string]' ([StringComparer]::OrdinalIgnoreCase)
 foreach ($ext in $Extension) { [void]$extensions.Add('.' + $ext.TrimStart('.')) }
+if ($IncludeLibraries) { [void]$extensions.Add('.dll') }
+
+$categories = @{}
+foreach ($ext in '.exe', '.com', '.scr') { $categories[$ext] = 'Executable' }
+foreach ($ext in '.bat', '.cmd', '.ps1', '.vbs', '.js', '.wsf') { $categories[$ext] = 'Script' }
+foreach ($ext in '.msi', '.msp') { $categories[$ext] = 'Installer' }
+foreach ($ext in '.dll', '.ocx') { $categories[$ext] = 'Library' }
 
 $invariant = [Globalization.CultureInfo]::InvariantCulture
 $files = New-Object System.Collections.Generic.List[object]
@@ -78,12 +94,14 @@ while ($stack.Count) {
                 # Junctions and folder symlinks lead to folders searched elsewhere
                 if (-not ($entry.Attributes -band [IO.FileAttributes]::ReparsePoint)) { $stack.Push($entry) }
             } elseif ($extensions.Contains($entry.Extension)) {
+                $category = $categories[$entry.Extension]
                 $files.Add([pscustomobject]@{
                     Name      = $entry.Name
                     Directory = $entry.DirectoryName
                     Size      = $entry.Length
                     # ISO 8601, local time with its time-zone offset
                     Modified  = $entry.LastWriteTime.ToString('yyyy-MM-ddTHH:mm:sszzz', $invariant)
+                    Category  = $(if ($category) { $category } else { 'Other' })
                 })
             }
         }

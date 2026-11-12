@@ -141,7 +141,7 @@ In text, csv and html, multiple IP addresses are separated by `, `. In json, `IP
 
 ## List executables
 
-Scripts that list the executable files on a machine's local disks, with each file's name, directory, size and last modified time.
+Scripts that list the executable files on a machine's local disks, with each file's name, directory, size, last modified time and category. Dynamic libraries are left out unless you ask for them.
 Requirements: [docs/spec/list_executables.md](../../docs/spec/list_executables.md).
 
 | Script | Platform | Output formats | Default output |
@@ -154,7 +154,7 @@ Searching whole disks takes a while, often several minutes on Windows. Folders t
 ### list_executables.ps1 (Windows)
 
 ```powershell
-.\list_executables.ps1 [-Format text|csv|json|html] [-OutFile <path>] [-Path <folder>[, ...]] [-AllDrives] [-Extension <ext>[, ...]]
+.\list_executables.ps1 [-Format text|csv|json|html] [-OutFile <path>] [-Path <folder>[, ...]] [-AllDrives] [-Extension <ext>[, ...]] [-IncludeLibraries]
 ```
 
 | Parameter | Default | Description |
@@ -164,13 +164,15 @@ Searching whole disks takes a while, often several minutes on Windows. Folders t
 | `-Path` | *(local drives)* | Folders to search instead of the local drives. |
 | `-AllDrives` | *(off)* | Also search removable, network and other drives that are ready. Ignored with `-Path`. |
 | `-Extension` | `.exe .com .bat .cmd .ps1 .msi` | File extensions that count as executable, with or without the dot. |
+| `-IncludeLibraries` | *(off)* | Also list dynamic libraries (`.dll` files). |
 
 Examples:
 
 ```powershell
 .\list_executables.ps1 -Format csv -OutFile executables.csv
 .\list_executables.ps1 -Path 'C:\Program Files', D:\Tools
-.\list_executables.ps1 -Extension exe, dll -Format json -OutFile executables.json
+.\list_executables.ps1 -IncludeLibraries -Format json -OutFile executables.json
+.\list_executables.ps1 -Extension exe, js
 ```
 
 Help: `Get-Help .\list_executables.ps1 -Full`
@@ -178,7 +180,7 @@ Help: `Get-Help .\list_executables.ps1 -Full`
 ### list_executables.sh (Linux)
 
 ```sh
-sh list_executables.sh [-f text|csv|json|html] [-o output_file] [-a] [-p folder]...
+sh list_executables.sh [-f text|csv|json|html] [-o output_file] [-a] [-l] [-p folder]...
 ```
 
 | Option | Default | Description |
@@ -186,6 +188,7 @@ sh list_executables.sh [-f text|csv|json|html] [-o output_file] [-a] [-p folder]
 | `-f` | `text` | Output format: `text`, `csv`, `json` or `html`. |
 | `-o` | *(stdout)* | File to write to. If omitted, output is printed. |
 | `-a` | | Also search network and other mounted filesystems, except virtual ones such as `/proc` and `/sys`. |
+| `-l` | *(off)* | Also list dynamic libraries (`*.so` and `*.so.*` files). |
 | `-p` | *(local disks)* | Search this folder instead of the local disks. Repeat it for more folders. |
 | `-h` | | Show usage. |
 
@@ -194,15 +197,28 @@ Examples:
 ```sh
 sudo sh list_executables.sh -f csv -o executables.csv
 sh list_executables.sh -p /usr/local/bin -p /opt
+sh list_executables.sh -l -f json -o executables.json
 ```
 
 Like `list_installed_software.sh`, it refuses to be sourced. It works with GNU or BusyBox tools.
 
 ### What counts as an executable
 
-**Windows:** a file whose extension is in the `-Extension` list. The default list is programs and scripts Windows runs directly, plus PowerShell scripts and installers; DLLs and `.js` files are left out unless you add them. Junctions and symbolic links to folders are not followed, so no folder is searched twice. The local drives are the fixed ones (`C:` and other internal disks).
+**Windows:** a file whose extension is in the `-Extension` list, plus `.dll` files with `-IncludeLibraries`. The default list is programs and scripts Windows runs directly, plus PowerShell scripts and installers; `.js` and other script types are left out unless you add them. Junctions and symbolic links to folders are not followed, so no folder is searched twice. The local drives are the fixed ones (`C:` and other internal disks).
 
-**Linux:** a regular file with any execute permission bit set. Symbolic links aren't listed; the files they point to are. The local disks are the filesystems on a `/dev/` block device, plus ZFS, so network mounts, `tmpfs`, `/proc` and, in WSL, the Windows drives under `/mnt/` are left out. Each filesystem is searched once, even if it's mounted in several places, and the search never crosses into another filesystem, including from a `-p` folder.
+**Linux:** a regular file with any execute permission bit set. Dynamic libraries (`*.so` and `*.so.*`) are left out, even when they have an execute bit; with `-l` they are all listed, whatever their permissions. Symbolic links aren't listed; the files they point to are. The local disks are the filesystems on a `/dev/` block device, plus ZFS, so network mounts, `tmpfs`, `/proc` and, in WSL, the Windows drives under `/mnt/` are left out. Each filesystem is searched once, even if it's mounted in several places, and the search never crosses into another filesystem, including from a `-p` folder.
+
+### Categories
+
+| Category | Windows | Linux |
+|---|---|---|
+| `Executable` | `.exe`, `.com`, `.scr` | Any other executable file (usually an ELF program) |
+| `Script` | `.bat`, `.cmd`, `.ps1`, `.vbs`, `.js`, `.wsf` | A file starting with `#!` |
+| `Installer` | `.msi`, `.msp` | |
+| `Library` | `.dll`, `.ocx` | `*.so`, `*.so.*` |
+| `Other` | Any other extension given with `-Extension` | |
+
+On Linux, a file that can't be read is counted as an `Executable`.
 
 ### Fields and output formats
 
@@ -212,14 +228,15 @@ Like `list_installed_software.sh`, it refuses to be sourced. It works with GNU o
 | `Directory` | Full path of the folder the file is in |
 | `Size` | Size in bytes |
 | `Modified` | Last modified time, in ISO 8601 local time with its time-zone offset (e.g. `2026-11-12T10:54:59+08:00`) |
+| `Category` | What kind of file it is, from the [categories](#categories) above |
 
 Files are sorted by directory, then name, and a file found twice (e.g. from overlapping `-Path` folders) is listed once.
 
 | Format | Shape |
 |---|---|
-| `text` | Aligned `Name` / `Directory` / `Size` / `Modified` table |
-| `csv` | Header `"Name","Directory","Size","Modified"`, all fields quoted |
-| `json` | Array of `{"Name": ..., "Directory": ..., "Size": <number>, "Modified": ...}` objects |
+| `text` | Aligned `Name` / `Directory` / `Size` / `Modified` / `Category` table |
+| `csv` | Header `"Name","Directory","Size","Modified","Category"`, all fields quoted |
+| `json` | Array of `{"Name": ..., "Directory": ..., "Size": <number>, "Modified": ..., "Category": ...}` objects |
 | `html` | Full page titled "Executable files", with the file count and a table |
 
 With BusyBox, whose `stat` doesn't report time zones, `Modified` uses the machine's current time-zone offset, which can be an hour off for files dated on the other side of a daylight-saving change.

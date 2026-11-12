@@ -2,21 +2,24 @@
 # ---------------------------------------------------------------
 #  list_executables.sh
 #  Lists the executable files on the local disks on Linux (name,
-#  directory, size and last modified time).
+#  directory, size, last modified time and category).
 #  See docs/spec/list_executables.md.
 #
 #  An executable is a regular file with any execute permission bit
-#  set. Local disks are the filesystems on a /dev/ block device, plus
+#  set: a Script if it starts with "#!", otherwise an Executable.
+#  Dynamic libraries (*.so and *.so.*) are left out unless -l is given,
+#  and are then listed as Library whatever their permissions. Local disks are the filesystems on a /dev/ block device, plus
 #  ZFS: network mounts, tmpfs and virtual filesystems such as /proc
 #  are left out. Each filesystem is searched once, without crossing
 #  into others. Folders that can't be read are skipped, so run it as
 #  root to see everything.
 #
-#  Usage:  list_executables.sh [-f text|csv|json|html] [-o output_file] [-a] [-p folder]...
+#  Usage:  list_executables.sh [-f text|csv|json|html] [-o output_file] [-a] [-l] [-p folder]...
 #    -f  Output format. Default: text.
 #    -o  File to write to. Default: stdout.
 #    -a  Also search network and other mounted filesystems, except
 #        virtual ones such as /proc and /sys.
+#    -l  Also list dynamic libraries.
 #    -p  Search this folder instead of the local disks (repeatable).
 #        It is searched without crossing into other filesystems.
 # ---------------------------------------------------------------
@@ -31,7 +34,7 @@ fi
 set -eu
 
 usage() {
-    echo "Usage: $(basename "$0") [-f text|csv|json|html] [-o output_file] [-a] [-p folder]..." >&2
+    echo "Usage: $(basename "$0") [-f text|csv|json|html] [-o output_file] [-a] [-l] [-p folder]..." >&2
     exit 2
 }
 
@@ -43,11 +46,13 @@ trap 'rm -f "$ROOTS" "$TMPFILE"' EXIT INT TERM
 FORMAT=text
 OUT=
 ALL=0
-while getopts "f:o:ap:h" opt; do
+LIBS=0
+while getopts "f:o:alp:h" opt; do
     case "$opt" in
         f) FORMAT=$OPTARG ;;
         o) OUT=$OPTARG ;;
         a) ALL=1 ;;
+        l) LIBS=1 ;;
         p)
             # Absolute, so the Directory column is too
             dir=$(cd "$OPTARG" 2>/dev/null && pwd) || { echo "Not a folder: $OPTARG" >&2; exit 2; }
@@ -96,13 +101,25 @@ mount_points() {
 # (it can be an hour off for files dated on the other side of a DST change)
 NOW_ZONE=$(date +%z)
 
-# Each file as "name<TAB>directory<TAB>size<TAB>modified", sorted by
-# directory and name. stat %y is "YYYY-MM-DD HH:MM:SS[.frac] [+ZZZZ]",
-# which becomes ISO 8601: YYYY-MM-DDTHH:MM:SS+ZZ:ZZ.
+# Prints "size modified path" for the executables under folder $1, plus the
+# dynamic libraries with -l (they often have no execute bit)
+find_files() {
+    if [ "$LIBS" -eq 1 ]; then
+        find "$1" -xdev -type f \( -perm -u=x -o -perm -g=x -o -perm -o=x \
+            -o -name '*.so' -o -name '*.so.*' \) -exec stat -c '%s %y %n' {} +
+    else
+        find "$1" -xdev -type f \( -perm -u=x -o -perm -g=x -o -perm -o=x \) \
+            ! -name '*.so' ! -name '*.so.*' -exec stat -c '%s %y %n' {} +
+    fi
+}
+
+# Each file as "name<TAB>directory<TAB>size<TAB>modified<TAB>category",
+# sorted by directory and name. stat %y is
+# "YYYY-MM-DD HH:MM:SS[.frac] [+ZZZZ]", which becomes ISO 8601:
+# YYYY-MM-DDTHH:MM:SS+ZZ:ZZ.
 while IFS= read -r root; do
-    find "$root" -xdev -type f \( -perm -u=x -o -perm -g=x -o -perm -o=x \) \
-        -exec stat -c '%s %y %n' {} + 2>/dev/null || true
-done <"$ROOTS" | awk -v OFS="$TAB" -v now_zone="$NOW_ZONE" '
+    find_files "$root" 2>/dev/null || true
+done <"$ROOTS" | LC_ALL=C awk -v OFS="$TAB" -v now_zone="$NOW_ZONE" '
     {
         size = $1; date = $2; time = $3
         path = $0; sub(/^[^ ]+ [^ ]+ [^ ]+ /, "", path)
@@ -116,7 +133,16 @@ done <"$ROOTS" | awk -v OFS="$TAB" -v now_zone="$NOW_ZONE" '
         name = path; sub(/.*\//, "", name)
         dir = path; sub(/\/[^\/]*$/, "", dir)
         if (dir == "") dir = "/"
-        print name, dir, size, date "T" time zone
+        if (name ~ /\.so(\.|$)/) {
+            category = "Library"
+        } else {
+            # A script starts with "#!"; an unreadable file counts as a program
+            first = ""
+            if ((getline first < path) > 0 && substr(first, 1, 2) == "#!") category = "Script"
+            else category = "Executable"
+            close(path)
+        }
+        print name, dir, size, date "T" time zone, category
     }
 ' | LC_ALL=C sort -t "$TAB" -k2,2 -k1,1 -u >"$TMPFILE"
 
@@ -143,7 +169,7 @@ format_output() {
         }
         {
             n++
-            name[n] = $1; dir[n] = $2; size[n] = $3; mod[n] = $4
+            name[n] = $1; dir[n] = $2; size[n] = $3; mod[n] = $4; cat[n] = $5
             if (length($1) > wn) wn = length($1)
             if (length($2) > wd) wd = length($2)
             if (length($3) > ws) ws = length($3)
@@ -153,19 +179,19 @@ format_output() {
                 if (wn < 4) wn = 4
                 if (wd < 9) wd = 9
                 if (ws < 4) ws = 4
-                f = "%-" wn "s  %-" wd "s  %" ws "s  %s\n"
-                printf f, "Name", "Directory", "Size", "Modified"
-                printf f, "----", "---------", "----", "--------"
-                for (i = 1; i <= n; i++) printf f, name[i], dir[i], size[i], mod[i]
+                f = "%-" wn "s  %-" wd "s  %" ws "s  %-25s  %s\n"
+                printf f, "Name", "Directory", "Size", "Modified", "Category"
+                printf f, "----", "---------", "----", "--------", "--------"
+                for (i = 1; i <= n; i++) printf f, name[i], dir[i], size[i], mod[i], cat[i]
             } else if (fmt == "csv") {
-                print "\"Name\",\"Directory\",\"Size\",\"Modified\""
+                print "\"Name\",\"Directory\",\"Size\",\"Modified\",\"Category\""
                 for (i = 1; i <= n; i++)
-                    print csv(name[i]) "," csv(dir[i]) "," csv(size[i]) "," csv(mod[i])
+                    print csv(name[i]) "," csv(dir[i]) "," csv(size[i]) "," csv(mod[i]) "," csv(cat[i])
             } else if (fmt == "json") {
                 print "["
                 for (i = 1; i <= n; i++)
-                    printf "  {\"Name\": %s, \"Directory\": %s, \"Size\": %s, \"Modified\": %s}%s\n",
-                        json(name[i]), json(dir[i]), size[i], json(mod[i]), (i < n ? "," : "")
+                    printf "  {\"Name\": %s, \"Directory\": %s, \"Size\": %s, \"Modified\": %s, \"Category\": %s}%s\n",
+                        json(name[i]), json(dir[i]), size[i], json(mod[i]), json(cat[i]), (i < n ? "," : "")
                 print "]"
             } else if (fmt == "html") {
                 print "<!DOCTYPE html>"
@@ -173,9 +199,9 @@ format_output() {
                 print "<h1>Executable files</h1>"
                 print "<p>" n " files</p>"
                 print "<table>"
-                print "<tr><th>Name</th><th>Directory</th><th>Size</th><th>Modified</th></tr>"
+                print "<tr><th>Name</th><th>Directory</th><th>Size</th><th>Modified</th><th>Category</th></tr>"
                 for (i = 1; i <= n; i++)
-                    print "<tr><td>" html(name[i]) "</td><td>" html(dir[i]) "</td><td>" size[i] "</td><td>" html(mod[i]) "</td></tr>"
+                    print "<tr><td>" html(name[i]) "</td><td>" html(dir[i]) "</td><td>" size[i] "</td><td>" html(mod[i]) "</td><td>" cat[i] "</td></tr>"
                 print "</table>"
                 print "</body></html>"
             }
