@@ -2,7 +2,8 @@ LIST INSTALLED SOFTWARE
 =======================
 
 Scripts that list the software installed on a machine, with each item's name
-and version.
+and version. By default they also show the host name, IP addresses and
+current timestamp.
 Requirements: ../../docs/spec/list_installed_software.md
 
   Script                        Platform                    Formats                 Default output
@@ -25,10 +26,11 @@ and src/go/ on Windows match the .ps1 script, and src/go/ on Linux matches the
 POWERSHELL (WINDOWS)
 --------------------
 
-  .\list_installed_software.ps1 [-Format text|csv|json|html] [-OutFile <path>]
+  .\list_installed_software.ps1 [-Format text|csv|json|html] [-OutFile <path>] [-NoSystemInfo]
 
-  -Format    Output format: text (default), csv, json or html.
-  -OutFile   File to write to (UTF-8). If omitted, output is printed.
+  -Format         Output format: text (default), csv, json or html.
+  -OutFile        File to write to (UTF-8). If omitted, output is printed.
+  -NoSystemInfo   Leave out the host name, IP addresses and timestamp.
 
 Examples:
 
@@ -36,6 +38,7 @@ Examples:
   .\list_installed_software.ps1 -Format csv  -OutFile installed_software.csv
   .\list_installed_software.ps1 -Format json -OutFile installed_software.json
   .\list_installed_software.ps1 -Format html -OutFile installed_software.html
+  .\list_installed_software.ps1 -NoSystemInfo
 
 If the execution policy blocks the script, run it with:
 
@@ -47,10 +50,11 @@ Help: Get-Help .\list_installed_software.ps1 -Full
 SH (LINUX)
 ----------
 
-  sh list_installed_software.sh [-f text|csv|json|html] [-o output_file]
+  sh list_installed_software.sh [-f text|csv|json|html] [-o output_file] [-n]
 
   -f   Output format: text (default), csv, json or html.
   -o   File to write to. If omitted, output is printed.
+  -n   Leave out the host name, IP addresses and timestamp.
   -h   Show usage.
 
 Examples:
@@ -59,6 +63,7 @@ Examples:
   sh list_installed_software.sh -f csv  -o installed_software.csv
   sh list_installed_software.sh -f json -o installed_software.json
   ./list_installed_software.sh -f html -o installed_software.html
+  sh list_installed_software.sh -n
 
 NOTE: Run it, don't source it. "source list_installed_software.sh" or
 ". ./list_installed_software.sh" is refused, because the script's "set -eu"
@@ -69,14 +74,16 @@ would otherwise stay on in your shell and break things like prompt hooks
 BATCH (WINDOWS)
 ---------------
 
-  list_installed_software.bat [output_file]
+  list_installed_software.bat [-n] [output_file]
 
-It writes a "Name  |  Version" list, with a header line giving the computer
-name and date, to output_file. If you don't give a file, it writes
-installed_software.txt next to the script. It also prints the list to the
-console.
+It writes a "Name  |  Version" list, after the host name, IP addresses and
+timestamp, to output_file. -n leaves out the host name, IP addresses and
+timestamp, and must come before output_file. If you don't give a file, it
+writes installed_software.txt next to the script. It also prints the list to
+the console.
 
-Limitations: text output only. Names containing %, ^ or " may be mangled.
+Limitations: text output only. The timestamp is in the system's date and time
+format, not ISO 8601. Names containing %, ^ or " may be mangled.
 
 
 WHAT IS LISTED
@@ -109,14 +116,43 @@ In every script, a missing version is shown as N/A, and duplicate
 name + version entries are listed once.
 
 
+SYSTEM INFORMATION
+------------------
+
+Unless turned off (-NoSystemInfo, or -n for .sh and .bat), the output also
+gives:
+
+  Host Name    The computer name (uname -n on Linux).
+  IP Address   The addresses of the machine's active network interfaces,
+               IPv4 first. Loopback and link-local addresses (127.x.x.x,
+               ::1, 169.254.x.x, fe80::) are skipped. Shown as N/A if there
+               are none.
+  Timestamp    When the list was made, in ISO 8601 local time with its
+               time-zone offset (e.g. 2026-11-12T10:54:59+08:00). The batch
+               script uses the system's date and time format instead.
+
+
 OUTPUT FORMATS
 --------------
 
   text   Aligned Name / Version table
   csv    Header "Name","Version", all fields quoted
   json   Array of {"Name": ..., "Version": ...} objects
-  html   Full page with a title (computer name), timestamp, item count and a
-         Name / Version table
+  html   Full page with a title, item count and a Name / Version table
+
+With system information:
+
+  text   "Host Name:", "IP Address:" and "Timestamp:" lines, then a blank
+         line, before the table
+  csv    HostName, IPAddress and Timestamp columns before Name and Version,
+         repeated on each row
+  json   Object {"HostName": ..., "IPAddress": [...], "Timestamp": ...,
+         "Software": [...]}, with the array under Software
+  html   Title names the host, and a Host Name / IP Address / Timestamp table
+         comes before the item count
+
+In text, csv and html, multiple IP addresses are separated by ", ". In json,
+IPAddress is always an array, empty when there are none.
 
 
 EXIT CODES

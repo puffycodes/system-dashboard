@@ -1,6 +1,6 @@
 # List Installed Software
 
-Scripts that list the software installed on a machine, with each item's name and version.
+Scripts that list the software installed on a machine, with each item's name and version. By default they also show the host name, IP addresses and current timestamp.
 Requirements: [docs/spec/list_installed_software.md](../../docs/spec/list_installed_software.md).
 
 | Script | Platform | Output formats | Default output |
@@ -18,13 +18,14 @@ The dashboards reproduce these scripts' lists entry for entry: [`src/powershell/
 ## PowerShell (Windows)
 
 ```powershell
-.\list_installed_software.ps1 [-Format text|csv|json|html] [-OutFile <path>]
+.\list_installed_software.ps1 [-Format text|csv|json|html] [-OutFile <path>] [-NoSystemInfo]
 ```
 
 | Parameter | Default | Description |
 |---|---|---|
 | `-Format` | `text` | Output format: `text`, `csv`, `json` or `html`. |
 | `-OutFile` | *(stdout)* | File to write to (UTF-8). If omitted, output is printed. |
+| `-NoSystemInfo` | *(off)* | Leave out the host name, IP addresses and timestamp. |
 
 Examples:
 
@@ -33,6 +34,7 @@ Examples:
 .\list_installed_software.ps1 -Format csv  -OutFile installed_software.csv
 .\list_installed_software.ps1 -Format json -OutFile installed_software.json
 .\list_installed_software.ps1 -Format html -OutFile installed_software.html
+.\list_installed_software.ps1 -NoSystemInfo
 ```
 
 If the execution policy blocks the script, run it with:
@@ -46,13 +48,14 @@ Help: `Get-Help .\list_installed_software.ps1 -Full`
 ## sh (Linux)
 
 ```sh
-sh list_installed_software.sh [-f text|csv|json|html] [-o output_file]
+sh list_installed_software.sh [-f text|csv|json|html] [-o output_file] [-n]
 ```
 
 | Option | Default | Description |
 |---|---|---|
 | `-f` | `text` | Output format: `text`, `csv`, `json` or `html`. |
 | `-o` | *(stdout)* | File to write to. If omitted, output is printed. |
+| `-n` | | Leave out the host name, IP addresses and timestamp. |
 | `-h` | | Show usage. |
 
 Examples:
@@ -62,6 +65,7 @@ sh list_installed_software.sh
 sh list_installed_software.sh -f csv  -o installed_software.csv
 sh list_installed_software.sh -f json -o installed_software.json
 ./list_installed_software.sh -f html -o installed_software.html
+sh list_installed_software.sh -n
 ```
 
 > **Run it, don't source it.** `source list_installed_software.sh` or `. ./list_installed_software.sh` is refused, because the script's `set -eu` would otherwise stay on in your shell and break things like prompt hooks (e.g. `bash: Q_LOG_LEVEL: unbound variable`).
@@ -69,12 +73,12 @@ sh list_installed_software.sh -f json -o installed_software.json
 ## Batch (Windows)
 
 ```bat
-list_installed_software.bat [output_file]
+list_installed_software.bat [-n] [output_file]
 ```
 
-It writes a `Name  |  Version` list, with a header line giving the computer name and date, to `output_file`. If you don't give a file, it writes `installed_software.txt` next to the script. It also prints the list to the console.
+It writes a `Name  |  Version` list, after the host name, IP addresses and timestamp, to `output_file`. `-n` leaves out the host name, IP addresses and timestamp, and must come before `output_file`. If you don't give a file, it writes `installed_software.txt` next to the script. It also prints the list to the console.
 
-Limitations: text output only. Names containing `%`, `^` or `"` may be mangled.
+Limitations: text output only. The timestamp is in the system's date and time format, not ISO 8601. Names containing `%`, `^` or `"` may be mangled.
 
 ## What is listed
 
@@ -99,14 +103,24 @@ It also includes Flatpak apps and Snaps when they are present. Snaps are skipped
 
 In every script, a missing version is shown as `N/A`, and duplicate name + version entries are listed once.
 
+## System information
+
+Unless turned off (`-NoSystemInfo`, or `-n` for `.sh` and `.bat`), the output also gives:
+
+- **Host Name**: the computer name (`uname -n` on Linux).
+- **IP Address**: the addresses of the machine's active network interfaces, IPv4 first. Loopback and link-local addresses (`127.x.x.x`, `::1`, `169.254.x.x`, `fe80::`) are skipped. Shown as `N/A` if there are none.
+- **Timestamp**: when the list was made, in ISO 8601 local time with its time-zone offset (e.g. `2026-11-12T10:54:59+08:00`). The batch script uses the system's date and time format instead.
+
 ## Output formats
 
-| Format | Shape |
-|---|---|
-| `text` | Aligned `Name` / `Version` table |
-| `csv` | Header `"Name","Version"`, all fields quoted |
-| `json` | Array of `{"Name": ..., "Version": ...}` objects |
-| `html` | Full page with a title (computer name), timestamp, item count and a `Name` / `Version` table |
+| Format | Shape | With system information |
+|---|---|---|
+| `text` | Aligned `Name` / `Version` table | `Host Name:`, `IP Address:` and `Timestamp:` lines, then a blank line, before the table |
+| `csv` | Header `"Name","Version"`, all fields quoted | `HostName`, `IPAddress` and `Timestamp` columns before `Name` and `Version`, repeated on each row |
+| `json` | Array of `{"Name": ..., "Version": ...}` objects | Object `{"HostName": ..., "IPAddress": [...], "Timestamp": ..., "Software": [...]}`, with the array under `Software` |
+| `html` | Full page with a title, item count and a `Name` / `Version` table | Title names the host, and a `Host Name` / `IP Address` / `Timestamp` table comes before the item count |
+
+In text, csv and html, multiple IP addresses are separated by `, `. In json, `IPAddress` is always an array, empty when there are none.
 
 ## Exit codes
 

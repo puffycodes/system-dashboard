@@ -1,6 +1,7 @@
 <#
 .SYNOPSIS
-    Lists installed software (name + version).
+    Lists installed software (name + version), with the host name, IP
+    addresses and current timestamp.
 
 .DESCRIPTION
     Reads the same registry Uninstall keys that "Programs and Features" uses
@@ -14,19 +15,42 @@
 .PARAMETER OutFile
     Optional file to write to. If omitted, output goes to stdout.
 
+.PARAMETER NoSystemInfo
+    Leave out the host name, IP addresses and timestamp.
+
 .EXAMPLE
     .\list_installed_software.ps1
     .\list_installed_software.ps1 -Format csv -OutFile installed_software.csv
+    .\list_installed_software.ps1 -NoSystemInfo
 #>
 [CmdletBinding()]
 param(
     [ValidateSet('text', 'csv', 'json', 'html')]
     [string]$Format = 'text',
 
-    [string]$OutFile
+    [string]$OutFile,
+
+    [switch]$NoSystemInfo
 )
 
 $ErrorActionPreference = 'Stop'
+
+# Addresses of the interfaces that are up, IPv4 first. Loopback and
+# link-local addresses are skipped, as they don't identify the machine.
+function Get-IPAddress {
+    $addresses = foreach ($nic in [System.Net.NetworkInformation.NetworkInterface]::GetAllNetworkInterfaces()) {
+        if ($nic.OperationalStatus -ne 'Up' -or $nic.NetworkInterfaceType -eq 'Loopback') { continue }
+        foreach ($unicast in $nic.GetIPProperties().UnicastAddresses) {
+            $ip = $unicast.Address
+            if ([System.Net.IPAddress]::IsLoopback($ip) -or $ip.IsIPv6LinkLocal -or
+                $ip.ToString().StartsWith('169.254.')) { continue }
+            $ip
+        }
+    }
+    $v4 = $addresses | Where-Object { $_.AddressFamily -eq 'InterNetwork' }
+    $v6 = $addresses | Where-Object { $_.AddressFamily -ne 'InterNetwork' }
+    @(@($v4) + @($v6) | ForEach-Object { $_.ToString() } | Select-Object -Unique)
+}
 
 $uninstallKeys = @(
     'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\*'
@@ -57,21 +81,58 @@ if ($software.Count -eq 0) {
     exit 1
 }
 
+if (-not $NoSystemInfo) {
+    $hostName = $env:COMPUTERNAME
+    # @() keeps none or one address as an array
+    $ipAddress = @(Get-IPAddress)
+    $ipText = if ($ipAddress.Count) { $ipAddress -join ', ' } else { 'N/A' }
+    # ISO 8601, local time with its time-zone offset
+    $timestamp = Get-Date -Format 'yyyy-MM-ddTHH:mm:sszzz'
+}
+
 switch ($Format) {
     'text' {
         $output = $software | Format-Table -AutoSize | Out-String -Width 4096
         $output = $output.Trim()
+        if (-not $NoSystemInfo) {
+            $output = "Host Name:  $hostName`r`nIP Address: $ipText`r`nTimestamp:  $timestamp`r`n`r`n$output"
+        }
     }
     'csv' {
-        $output = $software | ConvertTo-Csv -NoTypeInformation
+        # One table only, so the system info goes in extra columns on each row
+        $rows = if ($NoSystemInfo) { $software } else {
+            $software | Select-Object @{ n = 'HostName'; e = { $hostName } },
+                @{ n = 'IPAddress'; e = { $ipText } },
+                @{ n = 'Timestamp'; e = { $timestamp } }, Name, Version
+        }
+        $output = $rows | ConvertTo-Csv -NoTypeInformation
     }
     'json' {
-        # -InputObject keeps a one-item list as a JSON array
-        $output = ConvertTo-Json -InputObject $software
+        if ($NoSystemInfo) {
+            # -InputObject keeps a one-item list as a JSON array
+            $output = ConvertTo-Json -InputObject $software
+        } else {
+            $output = ConvertTo-Json -Depth 3 -InputObject ([pscustomobject]@{
+                HostName  = $hostName
+                IPAddress = [object[]]$ipAddress
+                Timestamp = $timestamp
+                Software  = [object[]]$software
+            })
+        }
     }
     'html' {
-        $output = $software | ConvertTo-Html -Title "Installed software on $env:COMPUTERNAME" `
-            -PreContent "<h1>Installed software on $env:COMPUTERNAME</h1><p>$(Get-Date -Format 'yyyy-MM-dd HH:mm:ss') &middot; $($software.Count) items</p>"
+        $enc = { param($s) [System.Net.WebUtility]::HtmlEncode($s) }
+        if ($NoSystemInfo) {
+            $title = 'Installed software'
+            $info = ''
+        } else {
+            $title = "Installed software on $(& $enc $hostName)"
+            $info = "<table><tr><th>Host Name</th><td>$(& $enc $hostName)</td></tr>" +
+                "<tr><th>IP Address</th><td>$(& $enc $ipText)</td></tr>" +
+                "<tr><th>Timestamp</th><td>$(& $enc $timestamp)</td></tr></table>"
+        }
+        $output = $software | ConvertTo-Html -Title $title `
+            -PreContent "<h1>$title</h1>$info<p>$($software.Count) items</p>"
     }
 }
 
