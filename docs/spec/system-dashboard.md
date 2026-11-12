@@ -36,6 +36,10 @@ A local web dashboard showing information about the machine it runs on.
     - Filter the table by text matching the name or version (case-insensitive).
     - Show the number of items, or `<shown> of <total>` while a filter is applied.
     - Refresh button to re-read the list from the machine.
+    - Download button to download the list.
+        - A dropdown menu to select the available format.
+        - The file formats should follow exactly those in [list_installed_software](list_installed_software.md).
+        - Default download file name should be installed_software_<host>_<YYYYMMDD_HHMMSS>.<extension>.
     - Show a loading message while the list is read, and an error message if it can't be loaded.
 
 ## User interface
