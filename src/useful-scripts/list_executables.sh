@@ -1,0 +1,191 @@
+#!/bin/sh
+# ---------------------------------------------------------------
+#  list_executables.sh
+#  Lists the executable files on the local disks on Linux (name,
+#  directory, size and last modified time).
+#  See docs/spec/list_executables.md.
+#
+#  An executable is a regular file with any execute permission bit
+#  set. Local disks are the filesystems on a /dev/ block device, plus
+#  ZFS: network mounts, tmpfs and virtual filesystems such as /proc
+#  are left out. Each filesystem is searched once, without crossing
+#  into others. Folders that can't be read are skipped, so run it as
+#  root to see everything.
+#
+#  Usage:  list_executables.sh [-f text|csv|json|html] [-o output_file] [-a] [-p folder]...
+#    -f  Output format. Default: text.
+#    -o  File to write to. Default: stdout.
+#    -a  Also search network and other mounted filesystems, except
+#        virtual ones such as /proc and /sys.
+#    -p  Search this folder instead of the local disks (repeatable).
+#        It is searched without crossing into other filesystems.
+# ---------------------------------------------------------------
+
+# Refuse to be sourced: set -eu, trap and exit would leak into the caller's shell
+if { [ -n "${BASH_VERSION:-}" ] && [ "${BASH_SOURCE:-$0}" != "$0" ]; } ||
+    case "${ZSH_EVAL_CONTEXT:-}" in *:file*) true ;; *) false ;; esac; then
+    echo "Run this script instead of sourcing it: sh list_executables.sh [options]" >&2
+    return 1
+fi
+
+set -eu
+
+usage() {
+    echo "Usage: $(basename "$0") [-f text|csv|json|html] [-o output_file] [-a] [-p folder]..." >&2
+    exit 2
+}
+
+TAB=$(printf '\t')
+ROOTS=$(mktemp)
+TMPFILE=$(mktemp)
+trap 'rm -f "$ROOTS" "$TMPFILE"' EXIT INT TERM
+
+FORMAT=text
+OUT=
+ALL=0
+while getopts "f:o:ap:h" opt; do
+    case "$opt" in
+        f) FORMAT=$OPTARG ;;
+        o) OUT=$OPTARG ;;
+        a) ALL=1 ;;
+        p)
+            # Absolute, so the Directory column is too
+            dir=$(cd "$OPTARG" 2>/dev/null && pwd) || { echo "Not a folder: $OPTARG" >&2; exit 2; }
+            printf '%s\n' "$dir" >>"$ROOTS"
+            ;;
+        *) usage ;;
+    esac
+done
+shift $((OPTIND - 1))
+[ $# -eq 0 ] || usage
+
+case "$FORMAT" in
+    text|csv|json|html) ;;
+    *) echo "Invalid format: $FORMAT" >&2; usage ;;
+esac
+
+# Prints the mount points to search, one per line, from /proc/self/mountinfo.
+# A filesystem mounted more than once (e.g. bind mounts) is listed once.
+mount_points() {
+    if [ ! -r /proc/self/mountinfo ]; then
+        echo /
+        return
+    fi
+    awk -v all="$ALL" '
+        # Mount points escape space, tab, newline and backslash as octal
+        function unescape(s) {
+            gsub(/\\040/, " ", s); gsub(/\\011/, "\t", s)
+            gsub(/\\012/, "\n", s); gsub(/\\134/, "\\", s)
+            return s
+        }
+        {
+            # Optional fields end with "-", then filesystem type and source
+            for (i = 7; i <= NF && $i != "-"; i++) ;
+            fstype = $(i + 1); source = $(i + 2)
+            if (fstype ~ /^(proc|sysfs|devtmpfs|devpts|tmpfs|ramfs|cgroup2?|securityfs|debugfs|tracefs|pstore|bpf|mqueue|hugetlbfs|configfs|fusectl|autofs|binfmt_misc|rpc_pipefs|nsfs|efivarfs|selinuxfs)$/) next
+            if (!all && source !~ /^\/dev\// && fstype != "zfs") next
+            key = $3 " " $4   # device and the folder of it that is mounted
+            if (!seen[key]++) print unescape($5)
+        }
+    ' /proc/self/mountinfo
+}
+
+[ -s "$ROOTS" ] || mount_points >"$ROOTS"
+
+# BusyBox stat leaves the time-zone offset out of %y, so use the current one
+# (it can be an hour off for files dated on the other side of a DST change)
+NOW_ZONE=$(date +%z)
+
+# Each file as "name<TAB>directory<TAB>size<TAB>modified", sorted by
+# directory and name. stat %y is "YYYY-MM-DD HH:MM:SS[.frac] [+ZZZZ]",
+# which becomes ISO 8601: YYYY-MM-DDTHH:MM:SS+ZZ:ZZ.
+while IFS= read -r root; do
+    find "$root" -xdev -type f \( -perm -u=x -o -perm -g=x -o -perm -o=x \) \
+        -exec stat -c '%s %y %n' {} + 2>/dev/null || true
+done <"$ROOTS" | awk -v OFS="$TAB" -v now_zone="$NOW_ZONE" '
+    {
+        size = $1; date = $2; time = $3
+        path = $0; sub(/^[^ ]+ [^ ]+ [^ ]+ /, "", path)
+        zone = now_zone
+        if (path ~ /^[+-][0-9][0-9][0-9][0-9] /) {
+            zone = substr(path, 1, 5)
+            path = substr(path, 7)
+        }
+        zone = substr(zone, 1, 3) ":" substr(zone, 4, 2)
+        sub(/\..*/, "", time)
+        name = path; sub(/.*\//, "", name)
+        dir = path; sub(/\/[^\/]*$/, "", dir)
+        if (dir == "") dir = "/"
+        print name, dir, size, date "T" time zone
+    }
+' | LC_ALL=C sort -t "$TAB" -k2,2 -k1,1 -u >"$TMPFILE"
+
+if [ ! -s "$TMPFILE" ]; then
+    echo "No executable files found." >&2
+    exit 1
+fi
+
+format_output() {
+    awk -F"$TAB" -v fmt="$FORMAT" '
+        function json(s) {
+            gsub(/\\/, "\\\\", s); gsub(/"/, "\\\"", s)
+            gsub(/\r/, "\\r", s);  gsub(/\n/, "\\n", s)
+            return "\"" s "\""
+        }
+        function csv(s) {
+            gsub(/"/, "\"\"", s)
+            return "\"" s "\""
+        }
+        function html(s) {
+            gsub(/&/, "\\&amp;", s); gsub(/</, "\\&lt;", s)
+            gsub(/>/, "\\&gt;", s);  gsub(/"/, "\\&quot;", s)
+            return s
+        }
+        {
+            n++
+            name[n] = $1; dir[n] = $2; size[n] = $3; mod[n] = $4
+            if (length($1) > wn) wn = length($1)
+            if (length($2) > wd) wd = length($2)
+            if (length($3) > ws) ws = length($3)
+        }
+        END {
+            if (fmt == "text") {
+                if (wn < 4) wn = 4
+                if (wd < 9) wd = 9
+                if (ws < 4) ws = 4
+                f = "%-" wn "s  %-" wd "s  %" ws "s  %s\n"
+                printf f, "Name", "Directory", "Size", "Modified"
+                printf f, "----", "---------", "----", "--------"
+                for (i = 1; i <= n; i++) printf f, name[i], dir[i], size[i], mod[i]
+            } else if (fmt == "csv") {
+                print "\"Name\",\"Directory\",\"Size\",\"Modified\""
+                for (i = 1; i <= n; i++)
+                    print csv(name[i]) "," csv(dir[i]) "," csv(size[i]) "," csv(mod[i])
+            } else if (fmt == "json") {
+                print "["
+                for (i = 1; i <= n; i++)
+                    printf "  {\"Name\": %s, \"Directory\": %s, \"Size\": %s, \"Modified\": %s}%s\n",
+                        json(name[i]), json(dir[i]), size[i], json(mod[i]), (i < n ? "," : "")
+                print "]"
+            } else if (fmt == "html") {
+                print "<!DOCTYPE html>"
+                print "<html><head><meta charset=\"utf-8\"><title>Executable files</title></head><body>"
+                print "<h1>Executable files</h1>"
+                print "<p>" n " files</p>"
+                print "<table>"
+                print "<tr><th>Name</th><th>Directory</th><th>Size</th><th>Modified</th></tr>"
+                for (i = 1; i <= n; i++)
+                    print "<tr><td>" html(name[i]) "</td><td>" html(dir[i]) "</td><td>" size[i] "</td><td>" html(mod[i]) "</td></tr>"
+                print "</table>"
+                print "</body></html>"
+            }
+        }
+    ' "$TMPFILE"
+}
+
+if [ -n "$OUT" ]; then
+    format_output >"$OUT"
+    echo "Saved $(wc -l <"$TMPFILE" | tr -d ' ') files to: $OUT" >&2
+else
+    format_output
+fi

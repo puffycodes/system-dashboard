@@ -8,10 +8,10 @@ Tools for inspecting a machine without installing any extra software (no Python,
 |---|---|
 | [`src/powershell/`](src/powershell/) | The system dashboard: a local web page served by Windows PowerShell 5.1. Shows the host name, IP addresses and time of the last read, and the installed software in a filterable, sortable table that can be downloaded as text, csv, json or html. |
 | [`src/go/`](src/go/) | The same dashboard as a single self-contained binary for Windows or Linux, written in Go. Build it once, then copy it to any machine. |
-| [`src/useful-scripts/`](src/useful-scripts/) | Standalone `list_installed_software` scripts for PowerShell, POSIX `sh` (Linux) and cmd. They list the installed software after the host name, IP addresses and timestamp (which an option turns off). Output as text, csv, json or html. |
+| [`src/useful-scripts/`](src/useful-scripts/) | Standalone scripts for PowerShell and POSIX `sh` (Linux). `list_installed_software` (also for cmd) lists the installed software after the host name, IP addresses and timestamp (which an option turns off). `list_executables` lists the executable files on the local disks with their directory, size and last modified time. Output as text, csv, json or html. |
 | [`scripts/`](scripts/) | `build.ps1` (Windows) and `build.sh` (Linux/macOS): build the bare Go binaries into `src/go/`. `package.ps1` and `package.sh`: build the dashboard and package the files each target machine needs into `dist/`. |
 | [`docs/design-approach.md`](docs/design-approach.md) | Options for running programs without installing software on Windows and Linux, and why the dashboard uses PowerShell and Go. |
-| [`docs/spec/`](docs/spec/) | Requirements for the [dashboard](docs/spec/system-dashboard.md) and the [installed-software list](docs/spec/list_installed_software.md). |
+| [`docs/spec/`](docs/spec/) | Requirements for the [dashboard](docs/spec/system-dashboard.md), the [installed-software list](docs/spec/list_installed_software.md) and the [executables list](docs/spec/list_executables.md). |
 
 ## Quick start
 
@@ -45,6 +45,18 @@ On Windows, double-click `system-dashboard.exe`. On Linux, run `./system-dashboa
 ```sh
 # Linux
 sh src/useful-scripts/list_installed_software.sh -f csv -o installed_software.csv
+```
+
+**Executables list:**
+
+```powershell
+# Windows (as administrator, to search every folder)
+.\src\useful-scripts\list_executables.ps1 -Format csv -OutFile executables.csv
+```
+
+```sh
+# Linux
+sudo sh src/useful-scripts/list_executables.sh -f csv -o executables.csv
 ```
 
 See [src/useful-scripts/README.md](src/useful-scripts/README.md) for all options.
