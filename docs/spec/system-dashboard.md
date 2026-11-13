@@ -17,11 +17,11 @@ A local web dashboard showing information about the machine it runs on.
 
 ## Packaging
 
-- One package per target: the PowerShell version, Windows x86-64, Linux x86-64 and Linux ARM64.
+- One package per target: the PowerShell version, Windows x86-64, Linux x86-64, Linux ARM64, macOS ARM64 (Apple silicon) and macOS x86-64 (Intel). See [macOS support](macos.md) for the macOS packages.
 - Each package contains only the files needed on the target machine.
 - Each package's files are in a folder named after the package, so extracting one never mixes its files with others.
 - Each package includes a `README.txt` on starting, stopping and the options for that package, with its version.
-- Linux packages keep the binary's executable permission.
+- Linux and macOS packages keep the binary's executable permission.
 - Checksums of the packages are provided in a `SHA256SUMS` file.
 
 ## Security

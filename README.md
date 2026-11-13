@@ -11,7 +11,7 @@ Tools for inspecting a machine without installing any extra software (no Python,
 | [`src/useful-scripts/`](src/useful-scripts/) | Standalone scripts for PowerShell and POSIX `sh` (Linux). `list_host_information` (also for cmd) lists the host name, IP addresses and timestamp. `list_installed_software` (also for cmd) lists the installed software. `list_executables` lists the executable files on the local disks with their directory, size, last modified time and category (executable, dynamic library, script, installer or other). Both lists are tagged with the host name and timestamp (which an option turns off). Output as text, csv, json or html. |
 | [`scripts/`](scripts/) | `build.ps1` (Windows) and `build.sh` (Linux/macOS): build the bare Go binaries into `src/go/`. `package.ps1` and `package.sh`: build the dashboard and package the files each target machine needs into `dist/`. |
 | [`docs/design-approach.md`](docs/design-approach.md) | Options for running programs without installing software on Windows and Linux, and why the dashboard uses PowerShell and Go. |
-| [`docs/spec/`](docs/spec/) | Requirements for the [dashboard](docs/spec/system-dashboard.md), the [host information](docs/spec/list_host_information.md), the [installed-software list](docs/spec/list_installed_software.md) and the [executables list](docs/spec/list_executables.md). |
+| [`docs/spec/`](docs/spec/) | Requirements for the [dashboard](docs/spec/system-dashboard.md), the [host information](docs/spec/list_host_information.md), the [installed-software list](docs/spec/list_installed_software.md), the [executables list](docs/spec/list_executables.md), and [macOS support](docs/spec/macos.md). |
 
 ## Quick start
 

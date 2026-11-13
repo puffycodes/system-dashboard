@@ -2,7 +2,7 @@
 
 - List the information that identifies the system.
     - Host Name
-        - The computer name (`uname -n` on Linux), the same as in [list_installed_software](list_installed_software.md) and [list_executables](list_executables.md), so their files can be matched to this host.
+        - The computer name (`uname -n` on Linux and macOS), the same as in [list_installed_software](list_installed_software.md) and [list_executables](list_executables.md), so their files can be matched to this host.
     - IP Addresses
         - The addresses of the machine's active network interfaces, IPv4 first.
         - Loopback and link-local addresses (`127.x.x.x`, `::1`, `169.254.x.x`, `fe80::`) are skipped.
