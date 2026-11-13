@@ -1,4 +1,5 @@
 # Build output
 *.exe
 system-dashboard-linux-*
+system-dashboard-darwin-*
 *.test
