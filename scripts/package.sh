@@ -11,6 +11,8 @@
 #    system-dashboard-<version>-windows-amd64.zip   system-dashboard.exe
 #    system-dashboard-<version>-linux-amd64.tar.gz  system-dashboard-linux-amd64, executable
 #    system-dashboard-<version>-linux-arm64.tar.gz  system-dashboard-linux-arm64, executable
+#    system-dashboard-<version>-darwin-arm64.tar.gz system-dashboard-darwin-arm64, executable
+#    system-dashboard-<version>-darwin-amd64.tar.gz system-dashboard-darwin-amd64, executable
 #    SHA256SUMS                                     checksums, for sha256sum -c
 #
 #  Each archive's files are in a folder named after the archive
@@ -18,9 +20,13 @@
 #  never mixes them with other files, even another of these packages.
 #
 #  Each archive also has a README.txt on running that package, made
-#  from scripts/package-readme/<powershell|windows|linux>.txt with
-#  the version (and the Linux binary's name) filled in. The Windows
-#  ones get CRLF endings.
+#  from scripts/package-readme/<powershell|windows|linux|macos>.txt
+#  with the version (and the Linux or macOS binary's name) filled in.
+#  The Windows ones get CRLF endings.
+#
+#  The macOS binaries for Apple silicon are signed ad hoc by Go's
+#  linker, which Apple silicon requires, so no Mac is needed to build
+#  them. They aren't signed with a Developer ID or notarized.
 #
 #  The Go binaries are built after running the Go tests. Zip files
 #  need one of zip, bsdtar or python3. Earlier output of this script
@@ -165,6 +171,21 @@ else
         write_readme linux "$linux_dir" "$name"
         chmod 644 "$linux_dir/README.txt"
         tar -czf "$OUT/$folder.tar.gz" -C "$STAGE/linux-$arch" "$folder"
+        ARCHIVES="$ARCHIVES $folder.tar.gz"
+    done
+
+    for arch in arm64 amd64; do
+        echo "Building darwin/$arch"
+        name=system-dashboard-darwin-$arch
+        folder=system-dashboard-$VERSION-darwin-$arch
+        mac_dir="$STAGE/darwin-$arch/$folder"
+        mkdir -p "$mac_dir"
+        go_build darwin "$arch" "$mac_dir/$name"
+        chmod 755 "$mac_dir" "$mac_dir/$name"
+        write_readme macos "$mac_dir" "$name"
+        chmod 644 "$mac_dir/README.txt"
+        # COPYFILE_DISABLE: macOS's tar would otherwise add ._ files for extended attributes
+        COPYFILE_DISABLE=1 tar -czf "$OUT/$folder.tar.gz" -C "$STAGE/darwin-$arch" "$folder"
         ARCHIVES="$ARCHIVES $folder.tar.gz"
     done
 fi

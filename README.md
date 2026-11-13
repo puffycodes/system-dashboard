@@ -7,8 +7,8 @@ Tools for inspecting a machine without installing any extra software (no Python,
 | Path | What it is |
 |---|---|
 | [`src/powershell/`](src/powershell/) | The system dashboard: a local web page served by Windows PowerShell 5.1. Shows the host name and IP addresses, with a tab for the installed software and a tab for the executable files on the local disks, searched on request by category. Each list is a filterable, sortable table that can be downloaded as text, csv, json or html. |
-| [`src/go/`](src/go/) | The same dashboard as a single self-contained binary for Windows or Linux, written in Go. Build it once, then copy it to any machine. |
-| [`src/useful-scripts/`](src/useful-scripts/) | Standalone scripts for PowerShell and POSIX `sh` (Linux). `list_host_information` (also for cmd) lists the host name, IP addresses and timestamp. `list_installed_software` (also for cmd) lists the installed software. `list_executables` lists the executable files on the local disks with their directory, size, last modified time and category (executable, dynamic library, script, installer or other). Both lists are tagged with the host name and timestamp (which an option turns off). Output as text, csv, json or html. |
+| [`src/go/`](src/go/) | The same dashboard as a single self-contained binary for Windows, Linux or macOS, written in Go. Build it once, then copy it to any machine. |
+| [`src/useful-scripts/`](src/useful-scripts/) | Standalone scripts for PowerShell and POSIX `sh` (Linux and macOS). `list_host_information` (also for cmd) lists the host name, IP addresses and timestamp. `list_installed_software` (also for cmd) lists the installed software. `list_executables` lists the executable files on the local disks with their directory, size, last modified time and category (executable, dynamic library, script, installer or other). Both lists are tagged with the host name and timestamp (which an option turns off). Output as text, csv, json or html. |
 | [`scripts/`](scripts/) | `build.ps1` (Windows) and `build.sh` (Linux/macOS): build the bare Go binaries into `src/go/`. `package.ps1` and `package.sh`: build the dashboard and package the files each target machine needs into `dist/`. |
 | [`docs/design-approach.md`](docs/design-approach.md) | Options for running programs without installing software on Windows and Linux, and why the dashboard uses PowerShell and Go. |
 | [`docs/spec/`](docs/spec/) | Requirements for the [dashboard](docs/spec/system-dashboard.md), the [host information](docs/spec/list_host_information.md), the [installed-software list](docs/spec/list_installed_software.md), the [executables list](docs/spec/list_executables.md), and [macOS support](docs/spec/macos.md). |
@@ -23,17 +23,18 @@ powershell -ExecutionPolicy Bypass -File .\src\powershell\server.ps1 -Open
 
 It opens at `http://localhost:8080/` and is only reachable from this machine. Press Ctrl+C in the console window to stop it. See [src/powershell/README.md](src/powershell/README.md).
 
-**Dashboard as a single binary (Go, Windows or Linux):** build it on any machine with Go 1.20+, then copy the binary to the target:
+**Dashboard as a single binary (Go, Windows, Linux or macOS):** build it on any machine with Go 1.20+, then copy the binary to the target:
 
 ```sh
 cd src/go
 GOOS=windows GOARCH=amd64 go build -trimpath -ldflags "-s -w" -o system-dashboard.exe .
 CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -trimpath -ldflags "-s -w" -o system-dashboard-linux-amd64 .
+CGO_ENABLED=0 GOOS=darwin GOARCH=arm64 go build -trimpath -ldflags "-s -w" -o system-dashboard-darwin-arm64 .
 ```
 
 Or run the build script from the repo root, which writes the binaries to `src/go/`: `.\scripts\build.ps1 -Target all` on Windows, `./scripts/build.sh -t all` on Linux/macOS.
 
-On Windows, double-click `system-dashboard.exe`. On Linux, run `./system-dashboard-linux-amd64`; on a headless server, view it with `ssh -L 8080:localhost:8080 user@host`. See [src/go/README.md](src/go/README.md).
+On Windows, double-click `system-dashboard.exe`. On Linux, run `./system-dashboard-linux-amd64`; on a headless server, view it with `ssh -L 8080:localhost:8080 user@host`. On a Mac, run `./system-dashboard-darwin-arm64` (Apple silicon) or `./system-dashboard-darwin-amd64` (Intel) in Terminal. See [src/go/README.md](src/go/README.md).
 
 **Host information:**
 
@@ -43,7 +44,7 @@ On Windows, double-click `system-dashboard.exe`. On Linux, run `./system-dashboa
 ```
 
 ```sh
-# Linux
+# Linux or macOS
 sh src/useful-scripts/list_host_information.sh -f json -o host_information.json
 ```
 
@@ -55,7 +56,7 @@ sh src/useful-scripts/list_host_information.sh -f json -o host_information.json
 ```
 
 ```sh
-# Linux
+# Linux or macOS
 sh src/useful-scripts/list_installed_software.sh -f csv -o installed_software.csv
 ```
 
@@ -67,11 +68,21 @@ sh src/useful-scripts/list_installed_software.sh -f csv -o installed_software.cs
 ```
 
 ```sh
-# Linux
+# Linux or macOS
 sudo sh src/useful-scripts/list_executables.sh -f csv -o executables.csv
 ```
 
 See [src/useful-scripts/README.md](src/useful-scripts/README.md) for all options.
+
+### macOS: Full Disk Access
+
+macOS's privacy controls keep some folders (e.g. Mail, Messages, Safari and parts of other users' folders) from Terminal, even as root, so `list_executables.sh` and the dashboard's Executables tab skip them. To include them, give Terminal Full Disk Access:
+
+1. Open **System Settings > Privacy & Security > Full Disk Access** (on macOS 12: **System Preferences > Security & Privacy > Privacy > Full Disk Access**).
+2. Turn on **Terminal**, or the terminal app you use. If it isn't listed, add it with **+** from `/Applications/Utilities`.
+3. Quit and reopen the terminal app.
+
+Turn it off again afterwards if you don't need it.
 
 ## Copying the dashboard to another machine
 
@@ -97,6 +108,8 @@ The packaging scripts build everything and put exactly these files in one archiv
 | `system-dashboard-<version>-windows-amd64.zip` | `system-dashboard.exe`, `README.txt` | Windows, Go version |
 | `system-dashboard-<version>-linux-amd64.tar.gz` | `system-dashboard-linux-amd64`, `README.txt` | Linux x86-64 |
 | `system-dashboard-<version>-linux-arm64.tar.gz` | `system-dashboard-linux-arm64`, `README.txt` | Linux ARM64 |
+| `system-dashboard-<version>-darwin-arm64.tar.gz` | `system-dashboard-darwin-arm64`, `README.txt` | macOS, Apple silicon |
+| `system-dashboard-<version>-darwin-amd64.tar.gz` | `system-dashboard-darwin-amd64`, `README.txt` | macOS, Intel |
 | `SHA256SUMS` | Checksums of the archives | Check a copy with `sha256sum -c SHA256SUMS` |
 
 Each archive's files are in a folder named after the archive, e.g. `system-dashboard-<version>-windows-amd64/`, so extracting one never mixes them with other files, even another of these packages.
@@ -105,7 +118,7 @@ Each archive includes a short `README.txt` on starting, stopping and the options
 
 `<version>` defaults to `git describe --tags --always --dirty`: the latest tag or commit, plus `-dirty` if tracked files have uncommitted changes. The Go binaries print the same version with `-version`, and the PowerShell version with `-Version`. Set it with `-Version` / `-v`, and the output folder with `-OutDir` / `-o`. Before building, the scripts run `go vet` and `go test` and stop if either fails. They take files from the working tree, so uncommitted changes are included. `dist/` is git-ignored.
 
-The `.tar.gz` archives keep the Linux binaries executable, even when packaged on Windows: `tar -xzf system-dashboard-<version>-linux-amd64.tar.gz`, then `cd system-dashboard-<version>-linux-amd64` and run `./system-dashboard-linux-amd64`. Zip archives also avoid email filters that block `.exe` attachments.
+The `.tar.gz` archives keep the Linux and macOS binaries executable, even when packaged on Windows: `tar -xzf system-dashboard-<version>-linux-amd64.tar.gz`, then `cd system-dashboard-<version>-linux-amd64` and run `./system-dashboard-linux-amd64`. Zip archives also avoid email filters that block `.exe` attachments.
 
 ### Go version (simplest)
 
@@ -114,12 +127,15 @@ The `.tar.gz` archives keep the Linux binaries executable, even when packaged on
 | Windows | `system-dashboard.exe` |
 | Linux x86-64 | `system-dashboard-linux-amd64` |
 | Linux ARM64 | `system-dashboard-linux-arm64` |
+| macOS, Apple silicon | `system-dashboard-darwin-arm64` |
+| macOS, Intel | `system-dashboard-darwin-amd64` |
 
-The web page is embedded in the binary, so that's all you need. On Linux, `uname -m` tells you which one: `x86_64` means amd64, `aarch64` means arm64.
+The web page is embedded in the binary, so that's all you need. On Linux, `uname -m` tells you which one: `x86_64` means amd64, `aarch64` means arm64. On a Mac, **Apple menu > About This Mac** shows an Apple chip (M1 or later: arm64) or an Intel processor (amd64).
 
 The binaries are build output, not files in git. Build them with `scripts\build.ps1` / `scripts/build.sh` or the commands in [src/go/README.md](src/go/README.md#build), or take them from the packages above.
 
-- **Linux:** copying the bare binary through Windows or a USB stick usually drops the executable permission. Run `chmod +x system-dashboard-linux-amd64` before starting it. `scp -p` and the `.tar.gz` packages keep the permission.
+- **Linux and macOS:** copying the bare binary through Windows or a USB stick usually drops the executable permission. Run `chmod +x system-dashboard-linux-amd64` (or the macOS binary) before starting it. `scp -p` and the `.tar.gz` packages keep the permission.
+- **macOS:** the binaries aren't signed with an Apple Developer ID or notarized; the Apple silicon one is signed ad hoc by Go's linker, which is enough to run it. macOS blocks a copy that was downloaded or emailed. Allow it with `xattr -d com.apple.quarantine system-dashboard-darwin-arm64`, or Control-click it in Finder and choose **Open** (on macOS 15 and later, try to run it once, then click **Open Anyway** in **System Settings > Privacy & Security**). The package's `README.txt` explains this too.
 - **Windows:** the `.exe` isn't code-signed. If it arrives by download or email, SmartScreen may warn on first run; choose **More info**, then **Run anyway**.
 
 ### PowerShell version (Windows)

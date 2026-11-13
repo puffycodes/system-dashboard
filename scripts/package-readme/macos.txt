@@ -1,0 +1,91 @@
+SYSTEM DASHBOARD (macOS)
+========================
+
+Version @VERSION@
+
+A local web page that shows this Mac's host name and IP addresses, its
+installed apps and Homebrew packages and, when you press Scan on the
+Executables tab, the executable files on its local volumes. Each list can
+be filtered, sorted and downloaded as text, csv, json or html.
+
+The whole dashboard is in one file:
+
+  @BINARY@
+
+Nothing needs to be installed. It runs on macOS 12 (Monterey) or later:
+the -arm64 file on Apple silicon (M1 and later), the -amd64 file on Intel.
+Copy it anywhere and run it.
+
+
+START
+-----
+
+In Terminal, in this folder:
+
+  ./@BINARY@
+
+It serves the dashboard at http://localhost:8080/ and opens it in your
+default browser.
+
+If you get "Permission denied", the file lost its executable permission on
+the way (e.g. copied through Windows or a USB stick). Restore it with:
+
+  chmod +x @BINARY@
+
+
+IF MACOS BLOCKS IT
+------------------
+
+The dashboard isn't signed with an Apple Developer ID or notarized, so
+macOS blocks a copy that was downloaded, emailed or sent over AirDrop
+("cannot be opened because the developer cannot be verified", or "Apple
+could not verify ..."). To allow it, remove the download mark in Terminal:
+
+  xattr -d com.apple.quarantine @BINARY@
+
+Or, in Finder, Control-click the file, choose Open, then Open again. On
+macOS 15 (Sequoia) and later, try to run it once, then go to System
+Settings > Privacy & Security and click Open Anyway.
+
+You only need to do this once.
+
+
+SEE EVERY FOLDER
+----------------
+
+macOS's privacy controls keep some folders (e.g. Mail, Messages, Safari
+and parts of other users' folders) from Terminal, even as root, so the
+Executables tab skips them. To include them, give Terminal Full Disk
+Access: System Settings > Privacy & Security > Full Disk Access, turn on
+Terminal (add it with + if it isn't listed), then quit and reopen
+Terminal. On macOS 12, it's System Preferences > Security & Privacy >
+Privacy > Full Disk Access.
+
+To also search the folders of other users that you can't read, run it
+with sudo:
+
+  sudo ./@BINARY@
+
+
+STOP
+----
+
+Press Ctrl+C.
+
+
+OPTIONS
+-------
+
+  -port <n>      Port to listen on (default 8080), e.g. -port 9000
+  -open=false    Don't try to open a browser
+  -help          Show the options and exit
+  -version       Print the version and exit
+
+If the port is already in use, choose another one with -port.
+
+
+NOTES
+-----
+
+- The dashboard never changes anything on the Mac.
+- It's only reachable from this Mac.

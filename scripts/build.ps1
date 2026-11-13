@@ -10,17 +10,22 @@
         windows-amd64   src\go\system-dashboard.exe
         linux-amd64     src\go\system-dashboard-linux-amd64
         linux-arm64     src\go\system-dashboard-linux-arm64
+        darwin-arm64    src\go\system-dashboard-darwin-arm64
+        darwin-amd64    src\go\system-dashboard-darwin-amd64
 
-    NTFS has no executable bit, so after copying a Linux binary to Linux, run
-    chmod +x on it first. package.ps1 makes archives that keep the bit.
+    NTFS has no executable bit, so after copying a Linux or macOS binary to
+    that machine, run chmod +x on it first. package.ps1 makes archives that
+    keep the bit. Go's linker signs the darwin-arm64 binary ad hoc, which
+    Apple silicon requires, so it can be built on Windows.
 
     Each binary prints its version with -version: the -Version given, or
     git describe --tags --always --dirty, as in package.ps1.
 
-    -Clean removes these three files from src\go instead of building.
+    -Clean removes these files from src\go instead of building.
 
 .PARAMETER Target
-    One or more of windows-amd64, linux-amd64, linux-arm64, or "all".
+    One or more of windows-amd64, linux-amd64, linux-arm64, darwin-arm64,
+    darwin-amd64, or "all".
     Default: windows-amd64.
 
 .PARAMETER OutFile
@@ -46,7 +51,7 @@
 [CmdletBinding(DefaultParameterSetName = 'Build')]
 param(
     [Parameter(ParameterSetName = 'Build')]
-    [ValidateSet('windows-amd64', 'linux-amd64', 'linux-arm64', 'all')]
+    [ValidateSet('windows-amd64', 'linux-amd64', 'linux-arm64', 'darwin-arm64', 'darwin-amd64', 'all')]
     [string[]]$Target = 'windows-amd64',
     [Parameter(ParameterSetName = 'Build')]
     [string]$OutFile,
@@ -65,6 +70,8 @@ $fileNames = [ordered]@{
     'windows-amd64' = 'system-dashboard.exe'
     'linux-amd64'   = 'system-dashboard-linux-amd64'
     'linux-arm64'   = 'system-dashboard-linux-arm64'
+    'darwin-arm64'  = 'system-dashboard-darwin-arm64'
+    'darwin-amd64'  = 'system-dashboard-darwin-amd64'
 }
 
 function Get-DefaultVersion {
@@ -84,7 +91,7 @@ function Invoke-GoBuild {
     try {
         $env:GOOS = $GoOS
         $env:GOARCH = $GoArch
-        $env:CGO_ENABLED = '0'   # fully static, runs on any Linux distro
+        $env:CGO_ENABLED = '0'   # fully static, runs on any Linux distro; no C toolchain needed for macOS
         go build -trimpath -ldflags "-s -w -X main.version=$Version" -o $OutFile .
         if ($LASTEXITCODE -ne 0) { throw "go build ($GoOS/$GoArch) failed (exit code $LASTEXITCODE)." }
     } finally {
@@ -140,6 +147,6 @@ foreach ($file in $built) {
     $size = [math]::Ceiling((Get-Item -LiteralPath $file).Length / 1KB)
     Write-Host "Built $file ($size KB)"
 }
-if ($Target | Where-Object { $_ -like 'linux-*' }) {
-    Write-Host 'On Linux, run chmod +x on the binary before starting it.'
+if ($Target | Where-Object { $_ -like 'linux-*' -or $_ -like 'darwin-*' }) {
+    Write-Host 'On Linux or macOS, run chmod +x on the binary before starting it.'
 }

@@ -10,6 +10,8 @@
         system-dashboard-<version>-windows-amd64.zip   system-dashboard.exe
         system-dashboard-<version>-linux-amd64.tar.gz  system-dashboard-linux-amd64, marked executable
         system-dashboard-<version>-linux-arm64.tar.gz  system-dashboard-linux-arm64, marked executable
+        system-dashboard-<version>-darwin-arm64.tar.gz system-dashboard-darwin-arm64, marked executable
+        system-dashboard-<version>-darwin-amd64.tar.gz system-dashboard-darwin-amd64, marked executable
         SHA256SUMS                                     checksums, for sha256sum -c
 
     Each archive's files are in a folder named after the archive (e.g.
@@ -17,12 +19,17 @@
     them with other files, even another of these packages.
 
     Each archive also has a README.txt on running that package, made from
-    scripts\package-readme\<powershell|windows|linux>.txt with the version
-    (and the Linux binary's name) filled in. The Windows ones get CRLF endings.
+    scripts\package-readme\<powershell|windows|linux|macos>.txt with the
+    version (and the Linux or macOS binary's name) filled in. The Windows ones
+    get CRLF endings.
+
+    The macOS binaries for Apple silicon are signed ad hoc by Go's linker,
+    which Apple silicon requires, so no Mac is needed to build them. They
+    aren't signed with a Developer ID or notarized.
 
     The Go binaries are built after running the Go tests. Archives are made
     with Windows' built-in tar.exe (Windows 10 1803 or later), which also sets
-    the executable bit on the Linux binaries. Earlier output of this script
+    the executable bit on the Linux and macOS binaries. Earlier output of this script
     in -OutDir is replaced; other files there are left alone.
 
     Files are taken from the working tree, so uncommitted changes are included.
@@ -59,6 +66,7 @@ $psSource = Join-Path $repo 'src\powershell'
 $goSource = Join-Path $repo 'src\go'
 
 $linuxTargets = @('amd64', 'arm64')
+$macTargets = @('arm64', 'amd64')
 
 function Invoke-Native {
     param([string]$What, [scriptblock]$Command)
@@ -117,7 +125,7 @@ function Invoke-GoBuild {
     try {
         $env:GOOS = $GoOS
         $env:GOARCH = $GoArch
-        $env:CGO_ENABLED = '0'   # fully static, runs on any Linux distro
+        $env:CGO_ENABLED = '0'   # fully static, runs on any Linux distro; no C toolchain needed for macOS
         Invoke-Native "go build ($GoOS/$GoArch)" { go build -trimpath -ldflags "-s -w -X main.version=$Version" -o $OutFile . }
     } finally {
         foreach ($name in $names) { [Environment]::SetEnvironmentVariable($name, $saved[$name], 'Process') }
@@ -200,6 +208,19 @@ try {
                 Write-PackageReadme -Template linux -Dir $linuxDir -Binary $name
                 $tarGz = Join-Path $OutDir "$folder.tar.gz"
                 New-ExecutableTarGz -TarPath $tarGz -FromDir $linuxStage -Folder $folder -FileName $name
+                $archives.Add($tarGz)
+            }
+
+            foreach ($arch in $macTargets) {
+                Write-Host "Building darwin/$arch"
+                $name = "system-dashboard-darwin-$arch"
+                $folder = "system-dashboard-$Version-darwin-$arch"
+                $macStage = Join-Path $stage "darwin-$arch"
+                $macDir = Join-Path $macStage $folder
+                Invoke-GoBuild -GoOS darwin -GoArch $arch -OutFile (Join-Path $macDir $name)
+                Write-PackageReadme -Template macos -Dir $macDir -Binary $name
+                $tarGz = Join-Path $OutDir "$folder.tar.gz"
+                New-ExecutableTarGz -TarPath $tarGz -FromDir $macStage -Folder $folder -FileName $name
                 $archives.Add($tarGz)
             }
         } finally {

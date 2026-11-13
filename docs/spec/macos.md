@@ -83,7 +83,8 @@ Each file is in one category, as on Linux:
 - Two more packages: `system-dashboard-<version>-darwin-arm64.tar.gz` and `system-dashboard-<version>-darwin-amd64.tar.gz`, each with the binary and a `README.txt`.
     - `.tar.gz`, so that the binary keeps its executable permission.
 - The binary is signed ad hoc, which Apple silicon requires before a program can run. It is not signed with a Developer ID or notarized.
-    - So macOS blocks a copy that was downloaded or emailed. The package's `README.txt` explains how to allow it: open it once with Control-click > Open, or remove the quarantine flag with `xattr -d com.apple.quarantine <binary>`.
+    - Go's linker signs the `darwin-arm64` binary ad hoc, even when it is built on Windows or Linux, so no Mac or `codesign` is needed to build it. The `darwin-amd64` binary is left unsigned, which Intel Macs allow.
+    - So macOS blocks a copy that was downloaded or emailed. The package's `README.txt` explains how to allow it: open it once with Control-click > Open (on macOS 15 and later: run it once, then Open Anyway in System Settings > Privacy & Security), or remove the quarantine flag with `xattr -d com.apple.quarantine <binary>`.
 - The build and package scripts accept the targets `darwin-arm64` and `darwin-amd64`, and `all` includes them.
 
 ## Testing

@@ -12,12 +12,18 @@
 #    windows-amd64   src/go/system-dashboard.exe
 #    linux-amd64     src/go/system-dashboard-linux-amd64
 #    linux-arm64     src/go/system-dashboard-linux-arm64
+#    darwin-arm64    src/go/system-dashboard-darwin-arm64
+#    darwin-amd64    src/go/system-dashboard-darwin-amd64
+#
+#  Go's linker signs the darwin-arm64 binary ad hoc, which Apple
+#  silicon requires, so it can be built on any OS.
 #
 #  Usage:  build.sh [-t target]... [-o output_file] [-v version]
 #          build.sh -c
-#    -t  windows-amd64, linux-amd64, linux-arm64 or all. Repeat for
-#        several targets. Default: the Linux binary for this
-#        machine's CPU (linux-arm64 on ARM64, otherwise linux-amd64).
+#    -t  windows-amd64, linux-amd64, linux-arm64, darwin-arm64,
+#        darwin-amd64 or all. Repeat for several targets. Default:
+#        the binary for this machine's OS (Linux or macOS) and CPU,
+#        e.g. linux-amd64 or darwin-arm64.
 #    -o  Path of the binary, instead of the default in src/go.
 #        Only with one target.
 #    -v  Version the binaries report with -version. Default: git
@@ -42,7 +48,7 @@ usage() {
     exit 2
 }
 
-ALL_TARGETS="windows-amd64 linux-amd64 linux-arm64"
+ALL_TARGETS="windows-amd64 linux-amd64 linux-arm64 darwin-arm64 darwin-amd64"
 
 REPO=$(cd "$(dirname "$0")/.." && pwd)
 GO_SRC=$REPO/src/go
@@ -55,8 +61,8 @@ while getopts "t:o:v:ch" opt; do
         t)
             case "$OPTARG" in
                 all) TARGETS="$TARGETS $ALL_TARGETS" ;;
-                windows-amd64 | linux-amd64 | linux-arm64) TARGETS="$TARGETS $OPTARG" ;;
-                *) echo "Unknown target: $OPTARG (use windows-amd64, linux-amd64, linux-arm64 or all)" >&2; usage ;;
+                windows-amd64 | linux-amd64 | linux-arm64 | darwin-arm64 | darwin-amd64) TARGETS="$TARGETS $OPTARG" ;;
+                *) echo "Unknown target: $OPTARG (use windows-amd64, linux-amd64, linux-arm64, darwin-arm64, darwin-amd64 or all)" >&2; usage ;;
             esac
             ;;
         o) OUT_FILE=$OPTARG ;;
@@ -100,9 +106,11 @@ fi
 has go || die "Go not found. Install Go 1.20+ to build the executables."
 
 if [ -z "$TARGETS" ]; then
+    os=linux
+    [ "$(uname -s)" = Darwin ] && os=darwin
     case "$(uname -m)" in
-        aarch64 | arm64) TARGETS=linux-arm64 ;;
-        *) TARGETS=linux-amd64 ;;
+        aarch64 | arm64) TARGETS=$os-arm64 ;;
+        *) TARGETS=$os-amd64 ;;
     esac
 fi
 
@@ -127,7 +135,7 @@ fi
 VERSION=$(printf '%s' "$VERSION" | tr -c 'A-Za-z0-9._+-' '-')   # same as package.sh; also keeps -ldflags intact
 
 BUILT=
-LINUX_BUILT=
+UNIX_BUILT=
 for t in $TARGETS; do
     goos=${t%-*}
     goarch=${t#*-}
@@ -135,9 +143,9 @@ for t in $TARGETS; do
     echo "Building $goos/$goarch ($VERSION)"
     # Set the target explicitly, so GOOS/GOARCH in the environment don't apply
     (cd "$GO_SRC" && CGO_ENABLED=0 GOOS=$goos GOARCH=$goarch go build -trimpath -ldflags "-s -w -X main.version=$VERSION" -o "$out" .)
-    if [ "$goos" = linux ]; then
+    if [ "$goos" != windows ]; then
         chmod 755 "$out"
-        LINUX_BUILT=1
+        UNIX_BUILT=1
     fi
     BUILT="$BUILT
 $out"
@@ -149,6 +157,6 @@ printf '%s\n' "$BUILT" | while IFS= read -r file; do
     size=$(( ($(wc -c < "$file") + 1023) / 1024 ))
     echo "Built $file ($size KB)"
 done
-if [ -n "$LINUX_BUILT" ]; then
-    echo "The Linux binaries are executable. If you copy one through Windows or a USB stick, run chmod +x on it again."
+if [ -n "$UNIX_BUILT" ]; then
+    echo "The Linux and macOS binaries are executable. If you copy one through Windows or a USB stick, run chmod +x on it again."
 fi
