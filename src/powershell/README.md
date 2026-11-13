@@ -37,7 +37,8 @@ The packaging scripts copy `start.cmd`, `server.ps1`, and everything in `modules
 
 | Route | Returns |
 |---|---|
-| `GET /api/software` | `{ "computerName": "...", "ipAddresses": ["..."], "generatedAt": "<ISO 8601>", "items": [{ "Name": "...", "Version": "..." }] }` |
+| `GET /api/host` | `{ "computerName": "...", "ipAddresses": ["..."], "generatedAt": "<ISO 8601>" }` |
+| `GET /api/software` | `{ "computerName": "...", "generatedAt": "<ISO 8601>", "items": [{ "Name": "...", "Version": "..." }] }` |
 | `GET /api/executables?categories=executable,library` | `{ "computerName": "...", "generatedAt": "<ISO 8601>", "categories": ["Executable", "Library"], "items": [{ "Name": "...", "Directory": "...", "Size": 123, "Modified": "...", "Category": "..." }] }` |
 
 `categories` takes `list_executables`' `-c` names (`executable`, `library`, `script`, `installer`, `other` or `all`), case-sensitively; the default is `executable`. Errors come back as `{ "error": "..." }` with a 400 (unknown category or an empty list), 404 or 500 status. Only `GET` and `HEAD` are accepted; other methods return 405.
@@ -51,7 +52,7 @@ Requests are handled one at a time, so while the executables are being searched,
 - **UI:** `src/go/www/` is a copy of `www/`. When you change the UI, change both copies, or copy one over the other.
 - **Software list:** `Get-InstalledSoftware` and `src/go/software_windows.go` use the same registry keys and filtering as [`list_installed_software.ps1`](../useful-scripts/list_installed_software.ps1). If you change one, change the others to match.
 - **Executables list:** `Get-Executable` and `src/go/executables_windows.go` use the same drives, categories and order as [`list_executables.ps1`](../useful-scripts/list_executables.ps1). If you change one, change the others to match.
-- **IP addresses:** `Get-IPAddress` and `ipAddresses` in `src/go/server.go` skip the same addresses as [`list_installed_software.ps1`](../useful-scripts/list_installed_software.ps1) and `.sh`. If you change one, change the others to match.
+- **IP addresses:** `Get-IPAddress` and `ipAddresses` in `src/go/server.go` skip the same addresses as [`list_host_information.ps1`](../useful-scripts/list_host_information.ps1) and `.sh`. If you change one, change the others to match.
 - **Download formats:** `softwareFormats` and `executableFormats` in `www/app.js` write the same files as [`list_installed_software.sh`](../useful-scripts/list_installed_software.sh) and [`list_executables.sh`](../useful-scripts/list_executables.sh). If you change a script's output format, change it there too.
 
 ## Adding a tab

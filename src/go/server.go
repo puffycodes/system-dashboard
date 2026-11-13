@@ -40,7 +40,8 @@ var contentTypes = map[string]string{
 //
 //	GET /               -> www/index.html
 //	GET /<file>         -> static file from www/
-//	GET /api/software   -> { computerName, ipAddresses, generatedAt, items: [{ Name, Version }] }
+//	GET /api/host       -> { computerName, ipAddresses, generatedAt }
+//	GET /api/software   -> { computerName, generatedAt, items: [{ Name, Version }] }
 //	GET /api/executables?categories=executable,library
 //	                    -> { computerName, generatedAt, categories, items: [{ Name, Directory, Size, Modified, Category }] }
 //
@@ -54,6 +55,13 @@ func newHandler(listSoftware func() []Software, listExecutables func(map[string]
 	static := http.FileServer(http.FS(www))
 
 	mux := http.NewServeMux()
+	mux.HandleFunc("/api/host", func(w http.ResponseWriter, r *http.Request) {
+		writeJSON(w, http.StatusOK, map[string]any{
+			"computerName": computerName(),
+			"ipAddresses":  ipAddresses(),
+			"generatedAt":  time.Now().Format(time.RFC3339Nano),
+		})
+	})
 	mux.HandleFunc("/api/software", func(w http.ResponseWriter, r *http.Request) {
 		items := listSoftware()
 		if items == nil {
@@ -61,7 +69,6 @@ func newHandler(listSoftware func() []Software, listExecutables func(map[string]
 		}
 		writeJSON(w, http.StatusOK, map[string]any{
 			"computerName": computerName(),
-			"ipAddresses":  ipAddresses(),
 			"generatedAt":  time.Now().Format(time.RFC3339Nano),
 			"items":        items,
 		})
@@ -115,7 +122,7 @@ func writeJSON(w http.ResponseWriter, status int, data any) {
 }
 
 // computerName matches $env:COMPUTERNAME in the PowerShell version on Windows,
-// and uname -n in list_installed_software.sh on Linux.
+// and uname -n in the .sh scripts on Linux.
 func computerName() string {
 	if name := os.Getenv("COMPUTERNAME"); name != "" {
 		return name
@@ -125,7 +132,7 @@ func computerName() string {
 }
 
 // ipAddresses lists the machine's addresses, IPv4 first, like
-// list_installed_software.ps1 and .sh: loopback and link-local addresses are
+// list_host_information.ps1 and .sh: loopback and link-local addresses are
 // skipped. On Windows only interfaces that are up count, as in the .ps1; on
 // Linux every interface counts, as with `ip addr show scope global` in the .sh.
 // It never returns nil, so the API always sends an array.

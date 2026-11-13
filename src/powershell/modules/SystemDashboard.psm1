@@ -46,9 +46,9 @@ function Get-IPAddress {
         Lists the machine's IP addresses, IPv4 first.
 
     .DESCRIPTION
-        Same as src/useful-scripts/list_installed_software.ps1: addresses of
+        Same as src/useful-scripts/list_host_information.ps1: addresses of
         the interfaces that are up, skipping loopback and link-local addresses.
-        See docs/spec/list_installed_software.md.
+        See docs/spec/list_host_information.md.
     #>
     [CmdletBinding()]
     param()

@@ -102,7 +102,8 @@ Identical to the PowerShell version, so they share the same UI:
 
 | Route | Returns |
 |---|---|
-| `GET /api/software` | `{ "computerName": "...", "ipAddresses": ["..."], "generatedAt": "<RFC 3339>", "items": [{ "Name": "...", "Version": "..." }] }` |
+| `GET /api/host` | `{ "computerName": "...", "ipAddresses": ["..."], "generatedAt": "<RFC 3339>" }` |
+| `GET /api/software` | `{ "computerName": "...", "generatedAt": "<RFC 3339>", "items": [{ "Name": "...", "Version": "..." }] }` |
 | `GET /api/executables?categories=executable,library` | `{ "computerName": "...", "generatedAt": "<RFC 3339>", "categories": ["Executable", "Library"], "items": [{ "Name": "...", "Directory": "...", "Size": 123, "Modified": "...", "Category": "..." }] }` |
 
 `categories` takes `list_executables`' `-c` names (`executable`, `library`, `script`, `installer`, `other` or `all`), case-sensitively; the default is `executable`. An unknown name or an empty list returns `{ "error": "..." }` with a 400 status, and unknown `/api/` routes return one with a 404 status. Only `GET` and `HEAD` are accepted; other methods return 405.
@@ -125,7 +126,7 @@ The executables lists match `list_executables` file for file, in the same order:
 - **Software lists:** if you change what the `.ps1` or `.sh` script lists, change `software_windows.go` or `software_linux.go` to match.
 - **Executables lists:** if you change what `list_executables.ps1` or `.sh` lists, or its categories, change `executables_windows.go` or `executables_linux.go`, and `Get-Executable` in the PowerShell version, to match.
 - **Download formats:** `softwareFormats` and `executableFormats` in `www/app.js` write the same files as [`list_installed_software.sh`](../useful-scripts/list_installed_software.sh) and [`list_executables.sh`](../useful-scripts/list_executables.sh). If you change a script's output format, change it there too.
-- **IP addresses:** `ipAddresses` in `server.go` skips the same addresses as the `.ps1` and `.sh` scripts and `Get-IPAddress` in the PowerShell version: loopback and link-local. Like the scripts, it counts only interfaces that are up on Windows, and every interface on Linux. If you change one, change the others to match.
+- **IP addresses:** `ipAddresses` in `server.go` skips the same addresses as the `list_host_information` `.ps1` and `.sh` scripts and `Get-IPAddress` in the PowerShell version: loopback and link-local. Like the scripts, it counts only interfaces that are up on Windows, and every interface on Linux. If you change one, change the others to match.
 
 ## Adding a tab
 

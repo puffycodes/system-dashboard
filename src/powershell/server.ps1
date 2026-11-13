@@ -13,7 +13,8 @@
     Routes:
         GET /               -> www/index.html
         GET /<file>         -> static file from www/
-        GET /api/software   -> { computerName, ipAddresses, generatedAt, items: [{ Name, Version }] }
+        GET /api/host       -> { computerName, ipAddresses, generatedAt }
+        GET /api/software   -> { computerName, generatedAt, items: [{ Name, Version }] }
         GET /api/executables?categories=executable,library
                             -> { computerName, generatedAt, categories, items: [{ Name, Directory, Size, Modified, Category }] }
 
@@ -178,10 +179,15 @@ function Invoke-Request {
         $script:isHeadRequest = $request.HttpMethod -eq 'HEAD'
         if ($request.HttpMethod -ne 'GET' -and -not $script:isHeadRequest) {
             Send-Text $response 405 'Method not allowed'
-        } elseif ($path -eq '/api/software') {
+        } elseif ($path -eq '/api/host') {
             Send-Json $response ([ordered]@{
                 computerName = $env:COMPUTERNAME
                 ipAddresses  = @(Get-IPAddress)
+                generatedAt  = (Get-Date).ToString('o')
+            })
+        } elseif ($path -eq '/api/software') {
+            Send-Json $response ([ordered]@{
+                computerName = $env:COMPUTERNAME
                 generatedAt  = (Get-Date).ToString('o')
                 items        = @(Get-InstalledSoftware)
             })

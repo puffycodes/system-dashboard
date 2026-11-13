@@ -53,19 +53,21 @@ func TestStaticFiles(t *testing.T) {
 	}
 }
 
-func TestSoftwareAPI(t *testing.T) {
-	rec := serve(t, http.MethodGet, "/api/software")
+func TestHostAPI(t *testing.T) {
+	rec := serve(t, http.MethodGet, "/api/host")
 	if rec.Code != http.StatusOK {
 		t.Fatalf("status %d, want 200", rec.Code)
 	}
 	var body struct {
-		ComputerName string     `json:"computerName"`
-		IPAddresses  []string   `json:"ipAddresses"`
-		GeneratedAt  string     `json:"generatedAt"`
-		Items        []Software `json:"items"`
+		ComputerName string   `json:"computerName"`
+		IPAddresses  []string `json:"ipAddresses"`
+		GeneratedAt  string   `json:"generatedAt"`
 	}
 	if err := json.Unmarshal(rec.Body.Bytes(), &body); err != nil {
 		t.Fatalf("invalid JSON: %v", err)
+	}
+	if body.ComputerName != computerName() {
+		t.Errorf("computerName = %q, want %q", body.ComputerName, computerName())
 	}
 	if body.GeneratedAt == "" {
 		t.Error("generatedAt is empty")
@@ -73,8 +75,32 @@ func TestSoftwareAPI(t *testing.T) {
 	if body.IPAddresses == nil {
 		t.Errorf("ipAddresses missing or null in %s", rec.Body.String())
 	}
-	if len(body.Items) != 1 || body.Items[0] != stubSoftware()[0] {
-		t.Errorf("items = %+v, want %+v", body.Items, stubSoftware())
+}
+
+func TestSoftwareAPI(t *testing.T) {
+	rec := serve(t, http.MethodGet, "/api/software")
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status %d, want 200", rec.Code)
+	}
+	var body map[string]json.RawMessage
+	if err := json.Unmarshal(rec.Body.Bytes(), &body); err != nil {
+		t.Fatalf("invalid JSON: %v", err)
+	}
+	// Only the host tag: the IP addresses are in /api/host
+	for _, key := range []string{"computerName", "generatedAt", "items"} {
+		if _, ok := body[key]; !ok {
+			t.Errorf("%s missing in %s", key, rec.Body.String())
+		}
+	}
+	if _, ok := body["ipAddresses"]; ok {
+		t.Errorf("ipAddresses should not be in %s", rec.Body.String())
+	}
+	var items []Software
+	if err := json.Unmarshal(body["items"], &items); err != nil {
+		t.Fatalf("invalid items: %v", err)
+	}
+	if len(items) != 1 || items[0] != stubSoftware()[0] {
+		t.Errorf("items = %+v, want %+v", items, stubSoftware())
 	}
 }
 
@@ -198,6 +224,7 @@ func TestErrors(t *testing.T) {
 		{http.MethodGet, "/nope.txt", http.StatusNotFound},
 		{http.MethodGet, "/api/nope", http.StatusNotFound},
 		{http.MethodGet, "/go.mod", http.StatusNotFound}, // only www/ is embedded
+		{http.MethodPost, "/api/host", http.StatusMethodNotAllowed},
 		{http.MethodPost, "/api/software", http.StatusMethodNotAllowed},
 		{http.MethodPost, "/api/executables", http.StatusMethodNotAllowed},
 	}

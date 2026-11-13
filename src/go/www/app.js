@@ -1,10 +1,26 @@
 'use strict';
 
-// System panel: filled from the same /api/software response, so Refresh updates it too.
+// System panel: read from /api/host when the page loads.
 const system = {
   host: document.getElementById('system-host'),
   ips: document.getElementById('system-ips'),
+  status: document.getElementById('system-status'),
 };
+
+async function loadHost() {
+  try {
+    const res = await fetch('/api/host');
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
+
+    system.host.textContent = data.computerName;
+    system.ips.textContent = data.ipAddresses.length ? data.ipAddresses.join(', ') : 'N/A';
+    system.status.hidden = true;
+  } catch (err) {
+    system.status.textContent = `Could not read the host information: ${err.message}`;
+    system.status.hidden = false;
+  }
+}
 
 // Tabs: the selected one is kept in the URL (#software, #executables), so a
 // reload or a link opens the same tab. Hidden tabs keep their state.
@@ -76,8 +92,6 @@ async function loadSoftware() {
 
     software.items = data.items;
     software.data = data;
-    system.host.textContent = data.computerName;
-    system.ips.textContent = data.ipAddresses.length ? data.ipAddresses.join(', ') : 'N/A';
     els.time.textContent = `Read at ${new Date(data.generatedAt).toLocaleString()}`;
     els.status.textContent = '';
     renderSoftware();
@@ -286,56 +300,53 @@ const csvField = (s) => `"${String(s).replace(/"/g, '""')}"`;
 const htmlText = (s) => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;')
   .replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 
-function systemInfo(data) {
-  return {
-    host: data.computerName,
-    ipList: data.ipAddresses,
-    ips: data.ipAddresses.length ? data.ipAddresses.join(', ') : 'N/A',
-    time: isoSeconds(data.generatedAt),
-  };
+// The host tag that each list's file starts with: the host name, and when
+// the list was read
+function hostTag(data) {
+  return { host: data.computerName, time: isoSeconds(data.generatedAt) };
 }
 
-// The installed software formats, with the system information first
+const textTag = (tag) => `Host Name: ${tag.host}\nTimestamp: ${tag.time}\n\n`;
+const csvTag = (tag) => `${csvField(tag.host)},${csvField(tag.time)},`;
+const jsonTag = (tag) => `  "HostName": ${JSON.stringify(tag.host)},\n  "Timestamp": ${JSON.stringify(tag.time)},\n`;
+const htmlTag = (tag) => '<table>\n' +
+  `<tr><th>Host Name</th><td>${htmlText(tag.host)}</td></tr>\n` +
+  `<tr><th>Timestamp</th><td>${htmlText(tag.time)}</td></tr>\n` +
+  '</table>\n';
+
+// The installed software formats, with the host tag first
 const softwareFormats = {
-  text(items, info) {
+  text(items, tag) {
     const width = Math.max(4, ...items.map((item) => item.Name.length));
     const row = (name, version) => `${name.padEnd(width)}  ${version}\n`;
-    return `Host Name:    ${info.host}\n` +
-      `IP Addresses: ${info.ips}\n` +
-      `Timestamp:    ${info.time}\n\n` +
+    return textTag(tag) +
       row('Name', 'Version') +
       row('----', '-------') +
       items.map((item) => row(item.Name, item.Version)).join('');
   },
 
-  csv(items, info) {
-    const prefix = `${csvField(info.host)},${csvField(info.ips)},${csvField(info.time)},`;
-    return '"HostName","IPAddresses","Timestamp","Name","Version"\n' +
+  csv(items, tag) {
+    const prefix = csvTag(tag);
+    return '"HostName","Timestamp","Name","Version"\n' +
       items.map((item) => `${prefix}${csvField(item.Name)},${csvField(item.Version)}\n`).join('');
   },
 
-  json(items, info) {
+  json(items, tag) {
     const str = JSON.stringify;
     return '{\n' +
-      `  "HostName": ${str(info.host)},\n` +
-      `  "IPAddresses": [${info.ipList.map(str).join(', ')}],\n` +
-      `  "Timestamp": ${str(info.time)},\n` +
+      jsonTag(tag) +
       '  "Software": [\n' +
       items.map((item, i) => `    {"Name": ${str(item.Name)}, "Version": ${str(item.Version)}}` +
         (i < items.length - 1 ? ',\n' : '\n')).join('') +
       '  ]\n}\n';
   },
 
-  html(items, info) {
-    const title = `Installed software on ${htmlText(info.host)}`;
+  html(items, tag) {
+    const title = `Installed software on ${htmlText(tag.host)}`;
     return '<!DOCTYPE html>\n' +
       `<html><head><meta charset="utf-8"><title>${title}</title></head><body>\n` +
       `<h1>${title}</h1>\n` +
-      '<table>\n' +
-      `<tr><th>Host Name</th><td>${htmlText(info.host)}</td></tr>\n` +
-      `<tr><th>IP Addresses</th><td>${htmlText(info.ips)}</td></tr>\n` +
-      `<tr><th>Timestamp</th><td>${htmlText(info.time)}</td></tr>\n` +
-      '</table>\n' +
+      htmlTag(tag) +
       `<p>${items.length} items</p>\n` +
       '<table>\n' +
       '<tr><th>Name</th><th>Version</th></tr>\n' +
@@ -345,9 +356,9 @@ const softwareFormats = {
   },
 };
 
-// The executables formats, as list_executables.sh writes them
+// The executables formats, as list_executables.sh writes them, with the host tag first
 const executableFormats = {
-  text(items) {
+  text(items, tag) {
     // A loop, not Math.max(...): the list can be longer than a call's argument limit
     const width = (key, min) => items.reduce((w, item) => Math.max(w, String(item[key]).length), min);
     const wn = width('Name', 4);
@@ -355,30 +366,36 @@ const executableFormats = {
     const ws = width('Size', 4);
     const row = (name, dir, size, modified, category) =>
       `${name.padEnd(wn)}  ${dir.padEnd(wd)}  ${size.padStart(ws)}  ${modified.padEnd(25)}  ${category}\n`;
-    return row('Name', 'Directory', 'Size', 'Modified', 'Category') +
+    return textTag(tag) +
+      row('Name', 'Directory', 'Size', 'Modified', 'Category') +
       row('----', '---------', '----', '--------', '--------') +
       items.map((item) => row(item.Name, item.Directory, String(item.Size), item.Modified, item.Category)).join('');
   },
 
-  csv(items) {
-    return '"Name","Directory","Size","Modified","Category"\n' +
-      items.map((item) => [item.Name, item.Directory, item.Size, item.Modified, item.Category]
+  csv(items, tag) {
+    const prefix = csvTag(tag);
+    return '"HostName","Timestamp","Name","Directory","Size","Modified","Category"\n' +
+      items.map((item) => prefix + [item.Name, item.Directory, item.Size, item.Modified, item.Category]
         .map(csvField).join(',') + '\n').join('');
   },
 
-  json(items) {
+  json(items, tag) {
     const str = JSON.stringify;
-    return '[\n' +
-      items.map((item, i) => `  {"Name": ${str(item.Name)}, "Directory": ${str(item.Directory)}, ` +
+    return '{\n' +
+      jsonTag(tag) +
+      '  "Executables": [\n' +
+      items.map((item, i) => `    {"Name": ${str(item.Name)}, "Directory": ${str(item.Directory)}, ` +
         `"Size": ${item.Size}, "Modified": ${str(item.Modified)}, "Category": ${str(item.Category)}}` +
         (i < items.length - 1 ? ',\n' : '\n')).join('') +
-      ']\n';
+      '  ]\n}\n';
   },
 
-  html(items) {
+  html(items, tag) {
+    const title = `Executable files on ${htmlText(tag.host)}`;
     return '<!DOCTYPE html>\n' +
-      '<html><head><meta charset="utf-8"><title>Executable files</title></head><body>\n' +
-      '<h1>Executable files</h1>\n' +
+      `<html><head><meta charset="utf-8"><title>${title}</title></head><body>\n` +
+      `<h1>${title}</h1>\n` +
+      htmlTag(tag) +
       `<p>${items.length} files</p>\n` +
       '<table>\n' +
       '<tr><th>Name</th><th>Directory</th><th>Size</th><th>Modified</th><th>Category</th></tr>\n' +
@@ -412,16 +429,17 @@ function saveFile(text, format, name) {
 function downloadSoftware() {
   const { data, els } = software;
   const format = downloadTypes[els.format.value];
-  const info = systemInfo(data);
-  saveFile(softwareFormats[els.format.value](data.items, info), format,
-    downloadFileName('installed_software', info.host, info.time, format.ext));
+  const tag = hostTag(data);
+  saveFile(softwareFormats[els.format.value](data.items, tag), format,
+    downloadFileName('installed_software', tag.host, tag.time, format.ext));
 }
 
 function downloadExecutables() {
   const { data, els } = executables;
   const format = downloadTypes[els.format.value];
-  saveFile(executableFormats[els.format.value](data.items), format,
-    downloadFileName('executables', data.computerName, isoSeconds(data.generatedAt), format.ext));
+  const tag = hostTag(data);
+  saveFile(executableFormats[els.format.value](data.items, tag), format,
+    downloadFileName('executables', tag.host, tag.time, format.ext));
 }
 
 // Click a column header to sort by it; click again to reverse the order
@@ -468,4 +486,5 @@ executables.els.all.addEventListener('change', () => {
 });
 updateAllCheckbox();
 
+loadHost();
 loadSoftware();
