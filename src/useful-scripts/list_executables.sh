@@ -1,12 +1,12 @@
 #!/bin/sh
 # ---------------------------------------------------------------
 #  list_executables.sh
-#  Lists the executable files on the local disks on Linux (name,
-#  directory, size, last modified time and category), tagged with the
-#  host name and current timestamp.
-#  See docs/spec/list_executables.md.
+#  Lists the executable files on the local disks on Linux or macOS
+#  (name, directory, size, last modified time and category), tagged
+#  with the host name and current timestamp.
+#  See docs/spec/list_executables.md and docs/spec/macos.md.
 #
-#  Each file is in one category:
+#  Each file is in one category. On Linux:
 #    Executable  an ELF program: a regular file with any execute
 #                permission bit set that starts with "\177ELF" (or
 #                can't be read)
@@ -16,13 +16,29 @@
 #    Installer   a package or installer: a regular file named *.deb,
 #                *.rpm or *.run, whatever its permissions
 #    Other       any other file with an execute bit
+#  On macOS:
+#    Executable  a Mach-O program: a file with an execute bit that
+#                starts with a Mach-O or universal binary signature (or
+#                can't be read)
+#    Library     a file named *.dylib or *.so, whatever its
+#                permissions, or a framework's binary with an execute
+#                bit (Foo.framework/Foo or Foo.framework/Versions/*/Foo)
+#    Script      a file with an execute bit that starts with "#!"
+#    Installer   a file named *.pkg, *.mpkg or *.dmg, whatever its
+#                permissions
+#    Other       any other file with an execute bit, including Java
+#                *.class files, which share the universal signature
 #  Only executables are listed by default; choose others with -c.
 #
-#  Local disks are the filesystems on a /dev/ block device, plus
-#  ZFS: network mounts, tmpfs and virtual filesystems such as /proc
-#  are left out. Each filesystem is searched once, without crossing
-#  into others. Folders that can't be read are skipped, so run it as
-#  root to see everything.
+#  Local disks on Linux are the filesystems on a /dev/ block device,
+#  plus ZFS: network mounts, tmpfs and virtual filesystems such as
+#  /proc are left out. On macOS they are the volumes that macOS marks
+#  as local, except its own support volumes (VM, Preboot, Update, ...)
+#  and Time Machine snapshots; files on the data volume are shown under
+#  their usual paths (/Users, /Applications, ...), using the firmlinks
+#  in /usr/share/firmlinks. Each filesystem is searched once, without
+#  crossing into others. Folders that can't be read are skipped, so run
+#  it as root to see everything.
 #
 #  Usage:  list_executables.sh [-f text|csv|json|html] [-o output_file] [-a] [-c categories] [-p folder]... [-n]
 #    -f  Output format. Default: text.
@@ -51,6 +67,7 @@ usage() {
 }
 
 TAB=$(printf '\t')
+OS=$(uname -s)
 ROOTS=$(mktemp)
 TMPFILE=$(mktemp)
 trap 'rm -f "$ROOTS" "$TMPFILE"' EXIT INT TERM
@@ -103,9 +120,39 @@ wants() {
     case "$WANT" in *" $1 "*) return 0 ;; *) return 1 ;; esac
 }
 
+# macOS: prints the mount points to search, one per line, from mount, whose
+# lines are "<device> on <mount point> (<type>, <option>, ...)". Local volumes
+# are those with the "local" option, unless -a. A volume mounted more than
+# once is listed once.
+mac_mount_points() {
+    mount | awk -v all="$ALL" '
+        {
+            on = index($0, " on ")
+            paren = 0
+            for (i = length($0); i > on; i--) if (substr($0, i, 2) == " (") { paren = i; break }
+            if (!on || !paren) next
+            device = substr($0, 1, on - 1)
+            point = substr($0, on + 4, paren - on - 4)
+            options = ", " substr($0, paren + 2, length($0) - paren - 2) ", "
+            fstype = options; sub(/^, /, "", fstype); sub(/,.*/, "", fstype)
+            if (fstype == "devfs" || fstype == "autofs") next
+            if (!all && index(options, ", local, ") == 0) next
+            # macOS support volumes, and Time Machine snapshots, which repeat
+            # the files of the volume they were taken from
+            if (point ~ /^\/System\/Volumes\/(VM|Preboot|Recovery|Update|xarts|iSCPreboot|Hardware)(\/|$)/) next
+            if (point ~ /^\/Volumes\/(\.timemachine|com\.apple\.TimeMachine\.)/) next
+            if (!seen[device]++) print point
+        }
+    '
+}
+
 # Prints the mount points to search, one per line, from /proc/self/mountinfo.
 # A filesystem mounted more than once (e.g. bind mounts) is listed once.
 mount_points() {
+    if [ "$OS" = Darwin ]; then
+        mac_mount_points
+        return
+    fi
     if [ ! -r /proc/self/mountinfo ]; then
         echo /
         return
@@ -147,17 +194,33 @@ find_files() {
     set -- "$1" -xdev -type f \(
     or=
     if wants Library; then
-        set -- "$@" -name '*.so' -o -name '*.so.*'
+        if [ "$OS" = Darwin ]; then
+            # A framework's binary has no extension, so files with an execute
+            # bit inside a framework are checked by path later
+            set -- "$@" -name '*.dylib' -o -name '*.so' -o \
+                \( -path '*.framework/*' \( -perm -u=x -o -perm -g=x -o -perm -o=x \) \)
+        else
+            set -- "$@" -name '*.so' -o -name '*.so.*'
+        fi
         or=-o
     fi
     if wants Installer; then
-        set -- "$@" $or -name '*.deb' -o -name '*.rpm' -o -name '*.run'
+        if [ "$OS" = Darwin ]; then
+            set -- "$@" $or -name '*.pkg' -o -name '*.mpkg' -o -name '*.dmg'
+        else
+            set -- "$@" $or -name '*.deb' -o -name '*.rpm' -o -name '*.run'
+        fi
         or=-o
     fi
     if wants Executable || wants Script || wants Other; then
         set -- "$@" $or -perm -u=x -o -perm -g=x -o -perm -o=x
     fi
-    find "$@" \) -exec stat -c '%s %y %n' {} +
+    if [ "$OS" = Darwin ]; then
+        # BSD stat: "size YYYY-MM-DD HH:MM:SS +ZZZZ path"
+        find "$@" \) -exec stat -f '%z %Sm %N' -t '%Y-%m-%d %H:%M:%S %z' {} +
+    else
+        find "$@" \) -exec stat -c '%s %y %n' {} +
+    fi
 }
 
 # Each file as "name<TAB>directory<TAB>size<TAB>modified<TAB>category",
@@ -166,31 +229,75 @@ find_files() {
 # YYYY-MM-DDTHH:MM:SS+ZZ:ZZ.
 while IFS= read -r root; do
     find_files "$root" 2>/dev/null || true
-done <"$ROOTS" | LC_ALL=C awk -v OFS="$TAB" -v now_zone="$NOW_ZONE" -v want="$WANT" '
+done <"$ROOTS" | LC_ALL=C awk -v OFS="$TAB" -v now_zone="$NOW_ZONE" -v want="$WANT" -v os="$OS" '
+    BEGIN {
+        # macOS firmlinks, as "/Users<TAB>Users": the folder on the system
+        # volume, then the folder on the data volume that it shows
+        if (os == "Darwin") {
+            while ((getline line < "/usr/share/firmlinks") > 0) {
+                split(line, part, "\t")
+                if (part[1] != "" && part[2] != "") firmlink["/System/Volumes/Data/" part[2]] = part[1]
+            }
+            close("/usr/share/firmlinks")
+        }
+    }
+    # The usual path of a file on the macOS data volume: the longest firmlink
+    # that the path is inside, e.g. /System/Volumes/Data/Users/x -> /Users/x
+    function usual_path(p,    target, best) {
+        best = ""
+        for (target in firmlink)
+            if ((p == target || substr(p, 1, length(target) + 1) == target "/") && length(target) > length(best))
+                best = target
+        return best == "" ? p : firmlink[best] substr(p, length(best) + 1)
+    }
+    # True if name is the binary of the framework that dir is in:
+    # Foo.framework/Foo or Foo.framework/Versions/<version>/Foo
+    function framework_binary(dir, name,    fw) {
+        fw = dir
+        sub(/\/Versions\/[^\/]+$/, "", fw)
+        if (fw !~ /\.framework$/) return 0
+        sub(/.*\//, "", fw)
+        return fw == name ".framework"
+    }
     {
         size = $1; date = $2; time = $3
-        path = $0; sub(/^[^ ]+ [^ ]+ [^ ]+ /, "", path)
+        file = $0; sub(/^[^ ]+ [^ ]+ [^ ]+ /, "", file)
         zone = now_zone
-        if (path ~ /^[+-][0-9][0-9][0-9][0-9] /) {
-            zone = substr(path, 1, 5)
-            path = substr(path, 7)
+        if (file ~ /^[+-][0-9][0-9][0-9][0-9] /) {
+            zone = substr(file, 1, 5)
+            file = substr(file, 7)
         }
         zone = substr(zone, 1, 3) ":" substr(zone, 4, 2)
         sub(/\..*/, "", time)
+        path = (os == "Darwin") ? usual_path(file) : file
         name = path; sub(/.*\//, "", name)
         dir = path; sub(/\/[^\/]*$/, "", dir)
         if (dir == "") dir = "/"
-        if (name ~ /\.so(\.|$)/) {
+        if (os == "Darwin" && (name ~ /\.(dylib|so)$/ || framework_binary(dir, name))) {
             category = "Library"
-        } else if (name ~ /\.(deb|rpm|run)$/) {
+        } else if (os == "Darwin" && name ~ /\.(pkg|mpkg|dmg)$/) {
+            category = "Installer"
+        } else if (os == "Darwin" && name ~ /\.class$/) {
+            # Java class files start like a universal binary
+            category = "Other"
+        } else if (os != "Darwin" && name ~ /\.so(\.|$)/) {
+            category = "Library"
+        } else if (os != "Darwin" && name ~ /\.(deb|rpm|run)$/) {
             category = "Installer"
         } else {
-            # An ELF program starts with "\177ELF" and a script with "#!".
-            # A file that cannot be read is most likely a program.
+            # An ELF program starts with "\177ELF", a Mach-O program with
+            # FEEDFACE or FEEDFACF in either byte order, a universal binary
+            # with CAFEBABE or CAFEBABF, and a script with "#!". A file that
+            # cannot be read is most likely a program.
             first = ""
-            status = (getline first < path)
-            close(path)
-            if (status < 0 || substr(first, 1, 4) == "\177ELF") category = "Executable"
+            status = (getline first < file)
+            close(file)
+            magic = substr(first, 1, 4)
+            if (status < 0) category = "Executable"
+            else if (os != "Darwin" && magic == "\177ELF") category = "Executable"
+            else if (os == "Darwin" && (magic == "\376\355\372\316" || magic == "\376\355\372\317" ||
+                magic == "\316\372\355\376" || magic == "\317\372\355\376" ||
+                magic == "\312\376\272\276" || magic == "\312\376\272\277")) category = "Executable"
             else if (substr(first, 1, 2) == "#!") category = "Script"
             else category = "Other"
         }

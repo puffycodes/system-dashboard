@@ -1,8 +1,8 @@
 #!/bin/sh
 # ---------------------------------------------------------------
 #  list_host_information.sh
-#  Lists the information that identifies this machine on Linux:
-#  host name, IP addresses and current timestamp.
+#  Lists the information that identifies this machine on Linux or
+#  macOS: host name, IP addresses and current timestamp.
 #  The host name is the same as in list_installed_software.sh and
 #  list_executables.sh, so their files can be matched to this host.
 #  See docs/spec/list_host_information.md.
@@ -48,7 +48,22 @@ has() { command -v "$1" >/dev/null 2>&1; }
 # Loopback and link-local addresses are skipped, as they don't
 # identify the machine.
 ip_addresses() {
-    if has ip; then
+    if [ "$(uname -s)" = Darwin ]; then
+        # macOS has no ip command: read ifconfig, keeping the interfaces
+        # that are up. Each interface starts with an unindented
+        # "en0: flags=8863<UP,...>" line, followed by its indented addresses.
+        ifconfig 2>/dev/null | awk '
+            /^[^ \t]/ { up = ($0 ~ /[<,]UP[,>]/ && $0 !~ /[<,]LOOPBACK[,>]/) }
+            up && $1 == "inet" && $2 !~ /^(127\.|169\.254\.)/ { v4[++n4] = $2 }
+            up && $1 == "inet6" {
+                addr = $2; sub(/%.*/, "", addr)   # fe80::1%en0 -> fe80::1
+                if (addr != "::1" && tolower(addr) !~ /^fe80:/) v6[++n6] = addr
+            }
+            END {
+                for (i = 1; i <= n4; i++) print v4[i]
+                for (i = 1; i <= n6; i++) print v6[i]
+            }'
+    elif has ip; then
         { ip -o -4 addr show scope global; ip -o -6 addr show scope global; } 2>/dev/null |
             awk '{ sub(/\/.*/, "", $4); print $4 }'
     elif has hostname; then

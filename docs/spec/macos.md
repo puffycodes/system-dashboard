@@ -27,9 +27,10 @@ How the scripts and the dashboard behave on macOS. Everything not covered here i
 
 - Lists:
     - Applications: the `.app` bundles in `/Applications` and `~/Applications`, and in their subfolders (e.g. `/Applications/Utilities`), but not `.app` bundles inside other bundles.
-    - Homebrew formulae and casks, when Homebrew is installed (`brew list --versions` and `brew list --cask --versions`).
+    - Homebrew formulae and casks, when Homebrew is installed: the same as `brew list --versions` and `brew list --cask --versions`.
+        - Read from Homebrew's `Cellar` and `Caskroom` folders in `/opt/homebrew` (Apple silicon) and `/usr/local` (Intel), as `brew` is slow to start and refuses to run as root.
 - Not listed:
-    - The apps that come with macOS in `/System/Applications` (e.g. Safari, Mail), just as Windows' list leaves out system components.
+    - The apps that come with macOS (e.g. Safari, Mail), just as Windows' list leaves out system components. They are on the read-only system volume, whether they appear in `/Applications` or `/System/Applications`.
     - Installer receipts (`pkgutil --pkgs`): mostly Apple's own components and the parts of apps that are already listed.
 - For an application:
     - Name: the bundle's name without `.app`, as Finder shows it (e.g. `Google Chrome`).
@@ -58,7 +59,7 @@ Each file is in one category, as on Linux:
 | Category | macOS |
 |---|---|
 | Executable | A Mach-O program: a regular file with an execute bit that starts with a Mach-O or universal binary signature, or that can't be read |
-| Library | A dynamic library: a file named `*.dylib` or `*.so`, or a framework's binary (e.g. `Foo.framework/Versions/A/Foo`), with or without an execute bit |
+| Library | A dynamic library: a file named `*.dylib` or `*.so`, with or without an execute bit, or a framework's binary with an execute bit (e.g. `Foo.framework/Versions/A/Foo`) |
 | Script | A file with an execute bit that starts with `#!` |
 | Installer | A file named `*.pkg`, `*.mpkg` or `*.dmg`, with or without an execute bit |
 | Other | Any other file with an execute bit |

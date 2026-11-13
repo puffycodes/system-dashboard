@@ -1,13 +1,16 @@
 #!/bin/sh
 # ---------------------------------------------------------------
 #  list_installed_software.sh
-#  Lists installed software (name + version) on Linux, tagged with the
-#  host name and current timestamp. The host's IP addresses are listed
-#  by list_host_information.sh.
-#  See docs/spec/list_installed_software.md.
+#  Lists installed software (name + version) on Linux or macOS, tagged
+#  with the host name and current timestamp. The host's IP addresses
+#  are listed by list_host_information.sh.
+#  See docs/spec/list_installed_software.md and docs/spec/macos.md.
 #
-#  Sources: the native package manager (dpkg, rpm, pacman or apk,
-#  first one found), plus Flatpak apps and Snaps when present.
+#  Sources on Linux: the native package manager (dpkg, rpm, pacman or
+#  apk, first one found), plus Flatpak apps and Snaps when present.
+#  Sources on macOS: the .app bundles in /Applications and
+#  ~/Applications (except the apps that come with macOS), plus
+#  Homebrew formulae and casks when Homebrew is installed.
 #
 #  Usage:  list_installed_software.sh [-f text|csv|json|html] [-o output_file] [-n]
 #          Default format is text; default output is stdout.
@@ -53,9 +56,70 @@ TAB=$(printf '\t')
 TMPFILE=$(mktemp)
 trap 'rm -f "$TMPFILE"' EXIT INT TERM
 
+# macOS: "name<TAB>version" for each .app bundle in /Applications and
+# ~/Applications, and their subfolders, but not for apps inside other apps
+# (-prune). The apps that come with macOS are on the read-only system
+# volume, so an app on the same volume as /System/Applications is skipped.
+mac_apps() {
+    sysdev=$(stat -f %d /System/Applications 2>/dev/null) || sysdev=
+    for dir in /Applications "${HOME:-/nonexistent}/Applications"; do
+        [ -d "$dir" ] || continue
+        find "$dir" -name '*.app' -type d -prune -exec stat -f '%d%t%N' {} + 2>/dev/null || true
+    done | awk -F"$TAB" -v sysdev="$sysdev" '$1 != sysdev { print $2 }' |
+        while IFS= read -r app; do
+            name=${app##*/}
+            name=${name%.app}
+            plist=$app/Contents/Info.plist
+            version=$(plutil -extract CFBundleShortVersionString raw -o - "$plist" 2>/dev/null) ||
+                version=$(plutil -extract CFBundleVersion raw -o - "$plist" 2>/dev/null) ||
+                version=
+            printf '%s\t%s\n' "$name" "$version"
+        done
+}
+
+# macOS: "name<TAB>version" for each Homebrew formula and cask, the same as
+# brew list --versions and brew list --cask --versions, but read from the
+# Cellar and Caskroom folders: brew itself is slow to start and refuses to
+# run as root. Apple silicon uses /opt/homebrew, Intel /usr/local; a Mac can
+# have both. When several versions are installed, the latest is listed.
+mac_homebrew() {
+    for prefix in "${HOMEBREW_PREFIX:-}" /opt/homebrew /usr/local; do
+        [ -n "$prefix" ] || continue
+        for kind in Cellar Caskroom; do
+            for version_dir in "$prefix/$kind"/*/*/; do
+                [ -d "$version_dir" ] || continue
+                version_dir=${version_dir%/}
+                version=${version_dir##*/}
+                name=${version_dir%/*}
+                name=${name##*/}
+                case "$name$version" in .*) continue ;; esac   # e.g. .metadata
+                printf '%s\t%s\n' "$name" "$version"
+            done
+        done
+    done | awk -F"$TAB" '
+        # 1 if version a is later than b: numeric parts are compared as
+        # numbers, other parts as text (1.10 > 1.9, 2.0_1 > 2.0)
+        function later(a, b,    na, nb, pa, pb, i) {
+            na = split(a, pa, /[^0-9A-Za-z]+/)
+            nb = split(b, pb, /[^0-9A-Za-z]+/)
+            for (i = 1; i <= na && i <= nb; i++) {
+                if (pa[i] == pb[i]) continue
+                if (pa[i] ~ /^[0-9]+$/ && pb[i] ~ /^[0-9]+$/) return pa[i] + 0 > pb[i] + 0
+                return pa[i] > pb[i]
+            }
+            return na > nb
+        }
+        !($1 in latest) || later($2, latest[$1]) { latest[$1] = $2 }
+        END { for (name in latest) print name "\t" latest[name] }
+    '
+}
+
 # Each source writes "name<TAB>version" lines to stdout
 {
-    if has dpkg-query; then
+    if [ "$(uname -s)" = Darwin ]; then
+        mac_apps
+        mac_homebrew
+    elif has dpkg-query; then
         dpkg-query -W -f='${Status}\t${Package}\t${Version}\n' 2>/dev/null |
             awk -F'\t' '$1 ~ / installed$/ { print $2 "\t" $3 }'
     elif has rpm; then
