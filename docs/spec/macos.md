@@ -29,6 +29,7 @@ How the scripts and the dashboard behave on macOS. Everything not covered here i
     - Applications: the `.app` bundles in `/Applications` and `~/Applications`, and in their subfolders (e.g. `/Applications/Utilities`), but not `.app` bundles inside other bundles.
     - Homebrew formulae and casks, when Homebrew is installed: the same as `brew list --versions` and `brew list --cask --versions`.
         - Read from Homebrew's `Cellar` and `Caskroom` folders in `/opt/homebrew` (Apple silicon) and `/usr/local` (Intel), as `brew` is slow to start and refuses to run as root.
+        - Also in `$HOMEBREW_PREFIX`, when it is set, for Homebrew installed somewhere else. `sudo` usually doesn't pass it on, so as root only the two usual folders are read.
 - Not listed:
     - The apps that come with macOS (e.g. Safari, Mail), just as Windows' list leaves out system components. They are on the read-only system volume, whether they appear in `/Applications` or `/System/Applications`.
     - Installer receipts (`pkgutil --pkgs`): mostly Apple's own components and the parts of apps that are already listed.
@@ -47,8 +48,10 @@ How the scripts and the dashboard behave on macOS. Everything not covered here i
 - Default: the local volumes.
     - Local volumes are the mounted filesystems that macOS marks as local, so network shares are left out. External disks and mounted disk images under `/Volumes` are included, as USB disks are on Linux.
     - macOS's own support volumes are left out: `/System/Volumes/VM`, `Preboot`, `Recovery`, `Update`, `xarts`, `iSCPreboot` and `Hardware`.
+    - Time Machine snapshots and backups mounted under `/Volumes/.timemachine` or `/Volumes/com.apple.TimeMachine.*` are left out, as they repeat the files of the volumes they were taken from.
+    - Virtual filesystems are left out: `devfs` (`/dev`), which macOS marks as local, and `autofs` mounts such as `/System/Volumes/Data/home`.
     - The system volume (`/`) and the data volume (`/System/Volumes/Data`) are searched. Files on the data volume are shown under their usual paths (e.g. `/Users/…`, `/Applications/…`), not under `/System/Volumes/Data`. Each file is listed once.
-- The option to include all mounted filesystems (`-a`) also searches network shares.
+- The option to include all mounted filesystems (`-a`) also searches network shares. The support volumes, Time Machine snapshots and virtual filesystems are still left out.
 - A folder given with `-p` is searched as on Linux, without crossing into another volume.
 - Folders that can't be read are skipped, as on Linux. Some folders are protected by macOS privacy controls, even from root. The README explains how to grant Full Disk Access to the terminal so that they can be read.
 
@@ -89,5 +92,5 @@ Each file is in one category, as on Linux:
 
 ## Testing
 
-- The unit tests for the macOS parsing code (Homebrew output, `Info.plist` versions, Mach-O signatures, framework paths, the mount list) run on any machine.
+- The unit tests for the macOS parsing code (Homebrew's folders and version order, `Info.plist` versions, Mach-O signatures, framework paths, the mount list, firmlinks and usual paths) run on any machine.
 - Before a release, the scripts and the dashboard are run on a real Mac, Apple silicon at least, and their lists compared, as on the other platforms.
