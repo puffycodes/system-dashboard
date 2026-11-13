@@ -4,24 +4,91 @@ USEFUL SCRIPTS
 Standalone scripts for inspecting a machine. Each runs on what the operating
 system already ships with.
 
-  List installed software   The installed software: name and version, after
-                            the host name, IP addresses and timestamp.
+  List host information     The information that identifies the machine:
+                            host name, IP addresses and timestamp.
+                            list_host_information.ps1, .sh, .bat
+  List installed software   The installed software: name and version,
+                            tagged with the host name and timestamp.
                             list_installed_software.ps1, .sh, .bat
   List executables          The executable files on the local disks: name,
                             directory, size, last modified time and
                             category (executable, library, script,
-                            installer or other).
+                            installer or other), tagged with the host name
+                            and timestamp.
                             list_executables.ps1, .sh
 
 The examples below are run from this folder (src/useful-scripts/).
+
+The lists are tagged with only the host name and timestamp, which identify
+where and when they were read. Other information about the host, such as its
+IP addresses, comes from list_host_information, whose host name matches the
+lists', so their files can be matched to it.
+
+
+LIST HOST INFORMATION
+=====================
+
+Scripts that list the information that identifies a machine: its host name,
+IP addresses and the current timestamp.
+Requirements: ../../docs/spec/list_host_information.md
+
+  Script                      Platform                    Formats                 Default output
+  --------------------------  --------------------------  ----------------------  ----------------------
+  list_host_information.ps1   Windows (PowerShell 5.1+)   text, csv, json, html   stdout
+  list_host_information.sh    Linux (any POSIX sh)        text, csv, json, html   stdout
+  list_host_information.bat   Windows (cmd)               text only               host_information.txt
+
+  .\list_host_information.ps1 [-Format text|csv|json|html] [-OutFile <path>]
+  sh list_host_information.sh [-f text|csv|json|html] [-o output_file]
+  list_host_information.bat [output_file]
+
+The options are the same as for list_installed_software: -Format/-f and
+-OutFile/-o, and -h for usage in .sh. The batch script writes to
+output_file, or host_information.txt next to the script, and also prints the
+information. Like the other .sh scripts, list_host_information.sh refuses to
+be sourced.
+
+Examples:
+
+  .\list_host_information.ps1
+  .\list_host_information.ps1 -Format json -OutFile host_information.json
+  sh list_host_information.sh -f csv -o host_information.csv
+
+Fields:
+
+  Host Name      The computer name (uname -n on Linux), the same as in the
+                 other scripts' host tag.
+  IP Addresses   The addresses of the machine's active network interfaces,
+                 IPv4 first. Loopback and link-local addresses (127.x.x.x,
+                 ::1, 169.254.x.x, fe80::) are skipped. Shown as N/A if
+                 there are none.
+  Timestamp      When the information was read, in ISO 8601 local time with
+                 its time-zone offset (e.g. 2026-11-12T10:54:59+08:00). The
+                 batch script uses the system's date and time format
+                 instead.
+
+Output formats:
+
+  text   "Host Name:", "IP Addresses:" and "Timestamp:" lines
+  csv    Header "HostName","IPAddresses","Timestamp" and one row, all fields
+         quoted
+  json   Object {"HostName": ..., "IPAddresses": [...], "Timestamp": ...}
+  html   Full page whose title names the host, with a Field / Value table
+
+In text, csv and html, multiple IP addresses are separated by ", ". In json,
+IPAddresses is always an array, empty when there are none.
+
+Exit codes: 0 on success; 2 for an invalid option or format (.sh only. In
+.ps1, an invalid -Format raises a parameter validation error.) For .sh, 1
+when the script is sourced.
 
 
 LIST INSTALLED SOFTWARE
 =======================
 
 Scripts that list the software installed on a machine, with each item's name
-and version. By default they also show the host name, IP addresses and
-current timestamp.
+and version. By default they tag the list with the host name and current
+timestamp.
 Requirements: ../../docs/spec/list_installed_software.md
 
   Script                        Platform                    Formats                 Default output
@@ -37,20 +104,23 @@ where PowerShell isn't available.
 The dashboards reproduce these scripts' lists entry for entry: src/powershell/
 and src/go/ on Windows match the .ps1 script, and src/go/ on Linux matches the
 .sh script. If you change what a script lists, update the dashboards to match.
+Their System panel shows the same host name and IP addresses as
+list_host_information.
 
 The dashboards' Download button also writes the same text, csv, json and
-html files as the .sh script, built by downloadFormats in www/app.js. If you
-change an output format, change it there too, in both UI copies.
+html files as the .sh script, built by softwareFormats and executableFormats
+in www/app.js. If you change an output format, change it there too, in both
+UI copies.
 
 
 POWERSHELL (WINDOWS)
 --------------------
 
-  .\list_installed_software.ps1 [-Format text|csv|json|html] [-OutFile <path>] [-NoSystemInfo]
+  .\list_installed_software.ps1 [-Format text|csv|json|html] [-OutFile <path>] [-NoHostTag]
 
-  -Format         Output format: text (default), csv, json or html.
-  -OutFile        File to write to (UTF-8). If omitted, output is printed.
-  -NoSystemInfo   Leave out the host name, IP addresses and timestamp.
+  -Format      Output format: text (default), csv, json or html.
+  -OutFile     File to write to (UTF-8). If omitted, output is printed.
+  -NoHostTag   Leave out the host name and timestamp.
 
 Examples:
 
@@ -58,7 +128,7 @@ Examples:
   .\list_installed_software.ps1 -Format csv  -OutFile installed_software.csv
   .\list_installed_software.ps1 -Format json -OutFile installed_software.json
   .\list_installed_software.ps1 -Format html -OutFile installed_software.html
-  .\list_installed_software.ps1 -NoSystemInfo
+  .\list_installed_software.ps1 -NoHostTag
 
 If the execution policy blocks the script, run it with:
 
@@ -74,7 +144,7 @@ SH (LINUX)
 
   -f   Output format: text (default), csv, json or html.
   -o   File to write to. If omitted, output is printed.
-  -n   Leave out the host name, IP addresses and timestamp.
+  -n   Leave out the host name and timestamp.
   -h   Show usage.
 
 Examples:
@@ -96,11 +166,10 @@ BATCH (WINDOWS)
 
   list_installed_software.bat [-n] [output_file]
 
-It writes a "Name  |  Version" list, after the host name, IP addresses and
-timestamp, to output_file. -n leaves out the host name, IP addresses and
-timestamp, and must come before output_file. If you don't give a file, it
-writes installed_software.txt next to the script. It also prints the list to
-the console.
+It writes a "Name  |  Version" list, after the host name and timestamp, to
+output_file. -n leaves out the host name and timestamp, and must come before
+output_file. If you don't give a file, it writes installed_software.txt next
+to the script. It also prints the list to the console.
 
 Limitations: text output only. The timestamp is in the system's date and time
 format, not ISO 8601. Names containing %, ^ or " may be mangled.
@@ -136,21 +205,21 @@ In every script, a missing version is shown as N/A, and duplicate
 name + version entries are listed once.
 
 
-SYSTEM INFORMATION
-------------------
+HOST TAG
+--------
 
-Unless turned off (-NoSystemInfo, or -n for .sh and .bat), the output also
+Unless turned off (-NoHostTag, or -n for .sh and .bat), the output also
 gives:
 
-  Host Name      The computer name (uname -n on Linux).
-  IP Addresses   The addresses of the machine's active network interfaces,
-                 IPv4 first. Loopback and link-local addresses (127.x.x.x,
-                 ::1, 169.254.x.x, fe80::) are skipped. Shown as N/A if
-                 there are none.
+  Host Name      The computer name (uname -n on Linux), as in
+                 list_host_information.
   Timestamp      When the list was made, in ISO 8601 local time with its
                  time-zone offset (e.g. 2026-11-12T10:54:59+08:00). The
                  batch script uses the system's date and time format
                  instead.
+
+The IP addresses are no longer in these files; use list_host_information for
+them.
 
 
 OUTPUT FORMATS
@@ -161,19 +230,16 @@ OUTPUT FORMATS
   json   Array of {"Name": ..., "Version": ...} objects
   html   Full page with a title, item count and a Name / Version table
 
-With system information:
+With the host tag:
 
-  text   "Host Name:", "IP Addresses:" and "Timestamp:" lines, then a blank
-         line, before the table
-  csv    HostName, IPAddresses and Timestamp columns before Name and Version,
-         repeated on each row
-  json   Object {"HostName": ..., "IPAddresses": [...], "Timestamp": ...,
-         "Software": [...]}, with the array under Software
-  html   Title names the host, and a Host Name / IP Addresses / Timestamp table
-         comes before the item count
-
-In text, csv and html, multiple IP addresses are separated by ", ". In json,
-IPAddresses is always an array, empty when there are none.
+  text   "Host Name:" and "Timestamp:" lines, then a blank line, before the
+         table
+  csv    HostName and Timestamp columns before Name and Version, repeated on
+         each row
+  json   Object {"HostName": ..., "Timestamp": ..., "Software": [...]}, with
+         the array under Software
+  html   Title names the host, and a Host Name / Timestamp table comes before
+         the item count
 
 
 EXIT CODES
@@ -192,7 +258,9 @@ LIST EXECUTABLES
 Scripts that list the executable files on a machine's local disks, with each
 file's name, directory, size, last modified time and category. By default
 they list only programs; dynamic libraries, scripts, installers and other
-executable files are listed when you ask for them.
+executable files are listed when you ask for them. Like
+list_installed_software, they tag the list with the host name and timestamp
+by default.
 Requirements: ../../docs/spec/list_executables.md
 
   Script                 Platform                    Formats                 Default output
@@ -211,6 +279,7 @@ POWERSHELL (WINDOWS)
   .\list_executables.ps1 [-Format text|csv|json|html] [-OutFile <path>]
                          [-Path <folder>[, ...]] [-AllDrives]
                          [-Category Executable|Library|Script|Installer|Other[, ...]]
+                         [-NoHostTag]
 
   -Format      Output format: text (default), csv, json or html.
   -OutFile     File to write to (UTF-8). If omitted, output is printed.
@@ -220,6 +289,7 @@ POWERSHELL (WINDOWS)
   -Category    The categories to list (see CATEGORIES): any of Executable,
                Library, Script, Installer and Other.
                Default: Executable
+  -NoHostTag   Leave out the host name and timestamp.
 
 Examples:
 
@@ -228,6 +298,7 @@ Examples:
   .\list_executables.ps1 -Category Executable, Library, Script, Installer, Other -Format json -OutFile executables.json
   .\list_executables.ps1 -Category Executable, Library
   .\list_executables.ps1 -Category Script, Installer
+  .\list_executables.ps1 -NoHostTag -Format csv -OutFile executables.csv
 
 Help: Get-Help .\list_executables.ps1 -Full
 
@@ -235,7 +306,7 @@ Help: Get-Help .\list_executables.ps1 -Full
 SH (LINUX)
 ----------
 
-  sh list_executables.sh [-f text|csv|json|html] [-o output_file] [-a] [-c categories] [-p folder]...
+  sh list_executables.sh [-f text|csv|json|html] [-o output_file] [-a] [-c categories] [-p folder]... [-n]
 
   -f   Output format: text (default), csv, json or html.
   -o   File to write to. If omitted, output is printed.
@@ -246,6 +317,7 @@ SH (LINUX)
        Default: executable
   -p   Search this folder instead of the local disks. Repeat it for more
        folders.
+  -n   Leave out the host name and timestamp.
   -h   Show usage.
 
 Examples:
@@ -255,6 +327,7 @@ Examples:
   sh list_executables.sh -c all -f json -o executables.json
   sh list_executables.sh -c executable,library
   sh list_executables.sh -c script,installer
+  sh list_executables.sh -n -f csv -o executables.csv
 
 Like list_installed_software.sh, it refuses to be sourced. It works with GNU
 or BusyBox tools.
@@ -320,6 +393,18 @@ overlapping -Path folders) is listed once.
   json   Array of {"Name": ..., "Directory": ..., "Size": <number>,
          "Modified": ..., "Category": ...} objects
   html   Full page titled "Executable files", with the file count and a table
+
+With the host tag (the default):
+
+  text   "Host Name:" and "Timestamp:" lines, then a blank line, before the
+         table
+  csv    HostName and Timestamp columns before Name, repeated on each row
+  json   Object {"HostName": ..., "Timestamp": ..., "Executables": [...]},
+         with the array under Executables
+  html   Title names the host ("Executable files on <host>"), and a
+         Host Name / Timestamp table comes before the file count
+
+The host tag's timestamp is when the search started, as in the dashboard.
 
 With BusyBox, whose stat doesn't report time zones, Modified uses the
 machine's current time-zone offset, which can be an hour off for files dated

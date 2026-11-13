@@ -8,10 +8,10 @@ Tools for inspecting a machine without installing any extra software (no Python,
 |---|---|
 | [`src/powershell/`](src/powershell/) | The system dashboard: a local web page served by Windows PowerShell 5.1. Shows the host name and IP addresses, with a tab for the installed software and a tab for the executable files on the local disks, searched on request by category. Each list is a filterable, sortable table that can be downloaded as text, csv, json or html. |
 | [`src/go/`](src/go/) | The same dashboard as a single self-contained binary for Windows or Linux, written in Go. Build it once, then copy it to any machine. |
-| [`src/useful-scripts/`](src/useful-scripts/) | Standalone scripts for PowerShell and POSIX `sh` (Linux). `list_installed_software` (also for cmd) lists the installed software after the host name, IP addresses and timestamp (which an option turns off). `list_executables` lists the executable files on the local disks with their directory, size, last modified time and category (executable, dynamic library, script, installer or other). Output as text, csv, json or html. |
+| [`src/useful-scripts/`](src/useful-scripts/) | Standalone scripts for PowerShell and POSIX `sh` (Linux). `list_host_information` (also for cmd) lists the host name, IP addresses and timestamp. `list_installed_software` (also for cmd) lists the installed software. `list_executables` lists the executable files on the local disks with their directory, size, last modified time and category (executable, dynamic library, script, installer or other). Both lists are tagged with the host name and timestamp (which an option turns off). Output as text, csv, json or html. |
 | [`scripts/`](scripts/) | `build.ps1` (Windows) and `build.sh` (Linux/macOS): build the bare Go binaries into `src/go/`. `package.ps1` and `package.sh`: build the dashboard and package the files each target machine needs into `dist/`. |
 | [`docs/design-approach.md`](docs/design-approach.md) | Options for running programs without installing software on Windows and Linux, and why the dashboard uses PowerShell and Go. |
-| [`docs/spec/`](docs/spec/) | Requirements for the [dashboard](docs/spec/system-dashboard.md), the [installed-software list](docs/spec/list_installed_software.md) and the [executables list](docs/spec/list_executables.md). |
+| [`docs/spec/`](docs/spec/) | Requirements for the [dashboard](docs/spec/system-dashboard.md), the [host information](docs/spec/list_host_information.md), the [installed-software list](docs/spec/list_installed_software.md) and the [executables list](docs/spec/list_executables.md). |
 
 ## Quick start
 
@@ -34,6 +34,18 @@ CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -trimpath -ldflags "-s -w" -o sys
 Or run the build script from the repo root, which writes the binaries to `src/go/`: `.\scripts\build.ps1 -Target all` on Windows, `./scripts/build.sh -t all` on Linux/macOS.
 
 On Windows, double-click `system-dashboard.exe`. On Linux, run `./system-dashboard-linux-amd64`; on a headless server, view it with `ssh -L 8080:localhost:8080 user@host`. See [src/go/README.md](src/go/README.md).
+
+**Host information:**
+
+```powershell
+# Windows
+.\src\useful-scripts\list_host_information.ps1 -Format json -OutFile host_information.json
+```
+
+```sh
+# Linux
+sh src/useful-scripts/list_host_information.sh -f json -o host_information.json
+```
 
 **Installed-software list:**
 

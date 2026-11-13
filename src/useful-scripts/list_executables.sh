@@ -2,7 +2,8 @@
 # ---------------------------------------------------------------
 #  list_executables.sh
 #  Lists the executable files on the local disks on Linux (name,
-#  directory, size, last modified time and category).
+#  directory, size, last modified time and category), tagged with the
+#  host name and current timestamp.
 #  See docs/spec/list_executables.md.
 #
 #  Each file is in one category:
@@ -23,7 +24,7 @@
 #  into others. Folders that can't be read are skipped, so run it as
 #  root to see everything.
 #
-#  Usage:  list_executables.sh [-f text|csv|json|html] [-o output_file] [-a] [-c categories] [-p folder]...
+#  Usage:  list_executables.sh [-f text|csv|json|html] [-o output_file] [-a] [-c categories] [-p folder]... [-n]
 #    -f  Output format. Default: text.
 #    -o  File to write to. Default: stdout.
 #    -a  Also search network and other mounted filesystems, except
@@ -32,6 +33,7 @@
 #        script, installer, other, or all. Default: executable.
 #    -p  Search this folder instead of the local disks (repeatable).
 #        It is searched without crossing into other filesystems.
+#    -n  Leave out the host name and timestamp.
 # ---------------------------------------------------------------
 
 # Refuse to be sourced: set -eu, trap and exit would leak into the caller's shell
@@ -44,7 +46,7 @@ fi
 set -eu
 
 usage() {
-    echo "Usage: $(basename "$0") [-f text|csv|json|html] [-o output_file] [-a] [-c categories] [-p folder]..." >&2
+    echo "Usage: $(basename "$0") [-f text|csv|json|html] [-o output_file] [-a] [-c categories] [-p folder]... [-n]" >&2
     exit 2
 }
 
@@ -57,11 +59,13 @@ FORMAT=text
 OUT=
 ALL=0
 CATEGORIES=executable
-while getopts "f:o:ac:p:h" opt; do
+TAG=1
+while getopts "f:o:ac:p:nh" opt; do
     case "$opt" in
         f) FORMAT=$OPTARG ;;
         o) OUT=$OPTARG ;;
         a) ALL=1 ;;
+        n) TAG=0 ;;
         c) CATEGORIES=$OPTARG ;;
         p)
             # Absolute, so the Directory column is too
@@ -126,6 +130,11 @@ mount_points() {
 }
 
 [ -s "$ROOTS" ] || mount_points >"$ROOTS"
+
+HOST=$(uname -n)
+# ISO 8601, local time with its time-zone offset (+0800 -> +08:00): when the
+# search started, as the dashboard does
+NOW=$(date '+%Y-%m-%dT%H:%M:%S%z' | sed 's/\([0-9][0-9]\)$/:\1/')
 
 # BusyBox stat leaves the time-zone offset out of %y, so use the current one
 # (it can be an hour off for files dated on the other side of a DST change)
@@ -195,7 +204,7 @@ if [ ! -s "$TMPFILE" ]; then
 fi
 
 format_output() {
-    awk -F"$TAB" -v fmt="$FORMAT" '
+    awk -F"$TAB" -v fmt="$FORMAT" -v tag="$TAG" -v host="$HOST" -v now="$NOW" '
         function json(s) {
             gsub(/\\/, "\\\\", s); gsub(/"/, "\\\"", s)
             gsub(/\r/, "\\r", s);  gsub(/\n/, "\\n", s)
@@ -219,6 +228,11 @@ format_output() {
         }
         END {
             if (fmt == "text") {
+                if (tag) {
+                    print "Host Name: " host
+                    print "Timestamp: " now
+                    print ""
+                }
                 if (wn < 4) wn = 4
                 if (wd < 9) wd = 9
                 if (ws < 4) ws = 4
@@ -227,19 +241,37 @@ format_output() {
                 printf f, "----", "---------", "----", "--------", "--------"
                 for (i = 1; i <= n; i++) printf f, name[i], dir[i], size[i], mod[i], cat[i]
             } else if (fmt == "csv") {
-                print "\"Name\",\"Directory\",\"Size\",\"Modified\",\"Category\""
+                # One table only, so the host tag goes in extra columns on each row
+                pre = tag ? csv(host) "," csv(now) "," : ""
+                print (tag ? "\"HostName\",\"Timestamp\"," : "") "\"Name\",\"Directory\",\"Size\",\"Modified\",\"Category\""
                 for (i = 1; i <= n; i++)
-                    print csv(name[i]) "," csv(dir[i]) "," csv(size[i]) "," csv(mod[i]) "," csv(cat[i])
+                    print pre csv(name[i]) "," csv(dir[i]) "," csv(size[i]) "," csv(mod[i]) "," csv(cat[i])
             } else if (fmt == "json") {
+                ind = ""
+                if (tag) {
+                    print "{"
+                    printf "  \"HostName\": %s,\n", json(host)
+                    printf "  \"Timestamp\": %s,\n", json(now)
+                    printf "  \"Executables\": "
+                    ind = "  "
+                }
                 print "["
                 for (i = 1; i <= n; i++)
-                    printf "  {\"Name\": %s, \"Directory\": %s, \"Size\": %s, \"Modified\": %s, \"Category\": %s}%s\n",
-                        json(name[i]), json(dir[i]), size[i], json(mod[i]), json(cat[i]), (i < n ? "," : "")
-                print "]"
+                    printf "%s  {\"Name\": %s, \"Directory\": %s, \"Size\": %s, \"Modified\": %s, \"Category\": %s}%s\n",
+                        ind, json(name[i]), json(dir[i]), size[i], json(mod[i]), json(cat[i]), (i < n ? "," : "")
+                print ind "]"
+                if (tag) print "}"
             } else if (fmt == "html") {
+                t = "Executable files" (tag ? " on " html(host) : "")
                 print "<!DOCTYPE html>"
-                print "<html><head><meta charset=\"utf-8\"><title>Executable files</title></head><body>"
-                print "<h1>Executable files</h1>"
+                print "<html><head><meta charset=\"utf-8\"><title>" t "</title></head><body>"
+                print "<h1>" t "</h1>"
+                if (tag) {
+                    print "<table>"
+                    print "<tr><th>Host Name</th><td>" html(host) "</td></tr>"
+                    print "<tr><th>Timestamp</th><td>" html(now) "</td></tr>"
+                    print "</table>"
+                }
                 print "<p>" n " files</p>"
                 print "<table>"
                 print "<tr><th>Name</th><th>Directory</th><th>Size</th><th>Modified</th><th>Category</th></tr>"

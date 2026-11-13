@@ -1,7 +1,8 @@
 <#
 .SYNOPSIS
     Lists the executable files on the local disks (name, directory, size,
-    last modified time and category).
+    last modified time and category), tagged with the host name and
+    current timestamp.
 
 .DESCRIPTION
     Searches every fixed (local) drive for executable files. Each file's
@@ -35,6 +36,9 @@
     The categories to list: any of Executable, Library, Script, Installer
     and Other. Default: Executable
 
+.PARAMETER NoHostTag
+    Leave out the host name and timestamp.
+
 .EXAMPLE
     .\list_executables.ps1
     .\list_executables.ps1 -Format csv -OutFile executables.csv
@@ -42,6 +46,7 @@
     .\list_executables.ps1 -Category Executable, Library, Script, Installer, Other
     .\list_executables.ps1 -Category Executable, Library
     .\list_executables.ps1 -Category Script
+    .\list_executables.ps1 -NoHostTag
 #>
 [CmdletBinding()]
 param(
@@ -55,10 +60,16 @@ param(
     [switch]$AllDrives,
 
     [ValidateSet('Executable', 'Library', 'Script', 'Installer', 'Other')]
-    [string[]]$Category = @('Executable')
+    [string[]]$Category = @('Executable'),
+
+    [switch]$NoHostTag
 )
 
 $ErrorActionPreference = 'Stop'
+
+# ISO 8601, local time with its time-zone offset: when the search started,
+# as the dashboard does
+$timestamp = Get-Date -Format 'yyyy-MM-ddTHH:mm:sszzz'
 
 if (-not $Path) {
     $Path = @([IO.DriveInfo]::GetDrives() | Where-Object {
@@ -125,21 +136,48 @@ if ($files.Count -eq 0) {
     exit 1
 }
 
+$hostName = $env:COMPUTERNAME
+
 switch ($Format) {
     'text' {
         $output = $files | Format-Table -AutoSize | Out-String -Width 4096
         $output = $output.Trim()
+        if (-not $NoHostTag) {
+            $output = "Host Name: $hostName`r`nTimestamp: $timestamp`r`n`r`n$output"
+        }
     }
     'csv' {
-        $output = $files | ConvertTo-Csv -NoTypeInformation
+        # One table only, so the host tag goes in extra columns on each row
+        $rows = if ($NoHostTag) { $files } else {
+            $files | Select-Object @{ n = 'HostName'; e = { $hostName } },
+                @{ n = 'Timestamp'; e = { $timestamp } }, Name, Directory, Size, Modified, Category
+        }
+        $output = $rows | ConvertTo-Csv -NoTypeInformation
     }
     'json' {
-        # -InputObject keeps a one-item list as a JSON array
-        $output = ConvertTo-Json -InputObject $files
+        if ($NoHostTag) {
+            # -InputObject keeps a one-item list as a JSON array
+            $output = ConvertTo-Json -InputObject $files
+        } else {
+            $output = ConvertTo-Json -Depth 3 -InputObject ([pscustomobject]@{
+                HostName    = $hostName
+                Timestamp   = $timestamp
+                Executables = [object[]]$files
+            })
+        }
     }
     'html' {
-        $output = $files | ConvertTo-Html -Title 'Executable files' `
-            -PreContent "<h1>Executable files</h1><p>$($files.Count) files</p>"
+        $enc = { param($s) [System.Net.WebUtility]::HtmlEncode($s) }
+        if ($NoHostTag) {
+            $title = 'Executable files'
+            $info = ''
+        } else {
+            $title = "Executable files on $(& $enc $hostName)"
+            $info = "<table><tr><th>Host Name</th><td>$(& $enc $hostName)</td></tr>" +
+                "<tr><th>Timestamp</th><td>$(& $enc $timestamp)</td></tr></table>"
+        }
+        $output = $files | ConvertTo-Html -Title $title `
+            -PreContent "<h1>$title</h1>$info<p>$($files.Count) files</p>"
     }
 }
 

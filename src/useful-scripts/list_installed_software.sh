@@ -1,8 +1,9 @@
 #!/bin/sh
 # ---------------------------------------------------------------
 #  list_installed_software.sh
-#  Lists installed software (name + version) on Linux, with the host
-#  name, IP addresses and current timestamp.
+#  Lists installed software (name + version) on Linux, tagged with the
+#  host name and current timestamp. The host's IP addresses are listed
+#  by list_host_information.sh.
 #  See docs/spec/list_installed_software.md.
 #
 #  Sources: the native package manager (dpkg, rpm, pacman or apk,
@@ -10,7 +11,7 @@
 #
 #  Usage:  list_installed_software.sh [-f text|csv|json|html] [-o output_file] [-n]
 #          Default format is text; default output is stdout.
-#          -n leaves out the host name, IP addresses and timestamp.
+#          -n leaves out the host name and timestamp.
 # ---------------------------------------------------------------
 
 # Refuse to be sourced: set -eu, trap and exit would leak into the caller's shell
@@ -29,12 +30,12 @@ usage() {
 
 FORMAT=text
 OUT=
-SYSINFO=1
+TAG=1
 while getopts "f:o:nh" opt; do
     case "$opt" in
         f) FORMAT=$OPTARG ;;
         o) OUT=$OPTARG ;;
-        n) SYSINFO=0 ;;
+        n) TAG=0 ;;
         *) usage ;;
     esac
 done
@@ -82,33 +83,16 @@ if [ ! -s "$TMPFILE" ]; then
     exit 1
 fi
 
-# Global addresses of the interfaces, IPv4 first, comma separated.
-# Loopback and link-local addresses are skipped, as they don't
-# identify the machine.
-ip_addresses() {
-    if has ip; then
-        { ip -o -4 addr show scope global; ip -o -6 addr show scope global; } 2>/dev/null |
-            awk '{ sub(/\/.*/, "", $4); print $4 }'
-    elif has hostname; then
-        # Not every hostname has -I (e.g. BusyBox); errors are dropped
-        hostname -I 2>/dev/null | tr ' ' '\n'
-    fi | awk 'NF && !seen[$0]++ { printf "%s%s", (n++ ? ", " : ""), $0 }'
-}
-
 HOST=
-IPS=
 NOW=
-if [ "$SYSINFO" = 1 ]; then
+if [ "$TAG" = 1 ]; then
     HOST=$(uname -n)
-    IPS=$(ip_addresses) || IPS=
-    [ -n "$IPS" ] || IPS=N/A
     # ISO 8601, local time with its time-zone offset (+0800 -> +08:00)
     NOW=$(date '+%Y-%m-%dT%H:%M:%S%z' | sed 's/\([0-9][0-9]\)$/:\1/')
 fi
 
 format_output() {
-    awk -F"$TAB" -v fmt="$FORMAT" -v sysinfo="$SYSINFO" \
-        -v host="$HOST" -v ips="$IPS" -v now="$NOW" '
+    awk -F"$TAB" -v fmt="$FORMAT" -v tag="$TAG" -v host="$HOST" -v now="$NOW" '
         function json(s) {
             gsub(/\\/, "\\\\", s); gsub(/"/, "\\\"", s)
             gsub(/\r/, "\\r", s);  gsub(/\n/, "\\n", s)
@@ -131,10 +115,9 @@ format_output() {
         }
         END {
             if (fmt == "text") {
-                if (sysinfo) {
-                    print "Host Name:    " host
-                    print "IP Addresses: " ips
-                    print "Timestamp:    " now
+                if (tag) {
+                    print "Host Name: " host
+                    print "Timestamp: " now
                     print ""
                 }
                 if (w < 4) w = 4
@@ -143,21 +126,15 @@ format_output() {
                 printf f, "----", "-------"
                 for (i = 1; i <= n; i++) printf f, name[i], ver[i]
             } else if (fmt == "csv") {
-                # One table only, so the system info goes in extra columns on each row
-                pre = sysinfo ? csv(host) "," csv(ips) "," csv(now) "," : ""
-                print (sysinfo ? "\"HostName\",\"IPAddresses\",\"Timestamp\"," : "") "\"Name\",\"Version\""
+                # One table only, so the host tag goes in extra columns on each row
+                pre = tag ? csv(host) "," csv(now) "," : ""
+                print (tag ? "\"HostName\",\"Timestamp\"," : "") "\"Name\",\"Version\""
                 for (i = 1; i <= n; i++) print pre csv(name[i]) "," csv(ver[i])
             } else if (fmt == "json") {
                 ind = ""
-                if (sysinfo) {
+                if (tag) {
                     print "{"
                     printf "  \"HostName\": %s,\n", json(host)
-                    printf "  \"IPAddresses\": ["
-                    if (ips != "N/A") {
-                        k = split(ips, ip, /, /)
-                        for (j = 1; j <= k; j++) printf "%s%s", (j > 1 ? ", " : ""), json(ip[j])
-                    }
-                    print "],"
                     printf "  \"Timestamp\": %s,\n", json(now)
                     printf "  \"Software\": "
                     ind = "  "
@@ -167,16 +144,15 @@ format_output() {
                     printf "%s  {\"Name\": %s, \"Version\": %s}%s\n",
                         ind, json(name[i]), json(ver[i]), (i < n ? "," : "")
                 print ind "]"
-                if (sysinfo) print "}"
+                if (tag) print "}"
             } else if (fmt == "html") {
-                t = "Installed software" (sysinfo ? " on " html(host) : "")
+                t = "Installed software" (tag ? " on " html(host) : "")
                 print "<!DOCTYPE html>"
                 print "<html><head><meta charset=\"utf-8\"><title>" t "</title></head><body>"
                 print "<h1>" t "</h1>"
-                if (sysinfo) {
+                if (tag) {
                     print "<table>"
                     print "<tr><th>Host Name</th><td>" html(host) "</td></tr>"
-                    print "<tr><th>IP Addresses</th><td>" html(ips) "</td></tr>"
                     print "<tr><th>Timestamp</th><td>" html(now) "</td></tr>"
                     print "</table>"
                 }
