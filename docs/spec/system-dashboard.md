@@ -32,10 +32,11 @@ A local web dashboard showing information about the machine it runs on.
 
 ## Features
 
-- Show information about the system, as in [list_installed_software](list_installed_software.md):
+- Show information about the system, as in [list_host_information](list_host_information.md):
     - Host Name and IP Addresses.
-    - Read together with the installed software, so Refresh updates it too.
+    - Read when the page loads; reloading the page reads it again.
     - Each list shows when it was read in its own tab, so the System panel has no timestamp.
+    - Shows `…` while it is read, and an error message in the panel if it can't be read.
 
 - Retrieve a list of the software installed on the machine.
     - Same entries as [list_installed_software](list_installed_software.md): name and version, a missing version shown as `N/A`, and duplicate name + version entries listed once.
@@ -52,7 +53,7 @@ A local web dashboard showing information about the machine it runs on.
         - A label for the dropdown menu that says "Download Format".
         - The file formats should follow exactly those in [list_installed_software](list_installed_software.md).
         - Default download file name should be installed_software_<hostname>_<YYYYMMDD_HHMMSS>.<extension>.
-        - The file includes the system information, as list_installed_software does by default.
+        - The file includes the host tag (host name and timestamp), as list_installed_software does by default.
         - The file contains the whole list in list_installed_software's order, whatever the table's filter and sort.
         - The button is disabled until the list has loaded and while it is being refreshed.
     - Show a loading message while the list is read, and an error message if it can't be loaded.
@@ -81,6 +82,7 @@ A local web dashboard showing information about the machine it runs on.
         - A dropdown menu to select the format, labelled "Download Format".
         - The file formats follow exactly those of [list_executables](list_executables.md).
         - Default download file name should be executables_<hostname>_<YYYYMMDD_HHMMSS>.<extension>.
+        - The file includes the host tag (host name and timestamp), as list_executables does by default.
         - The file contains the whole list in list_executables' order, whatever the table's filter and sort.
     - Show an error message if the list can't be read.
 
@@ -98,19 +100,30 @@ A local web dashboard showing information about the machine it runs on.
 
 The page gets its data from a JSON API on the same server.
 
-- `GET /api/software` returns:
+- `GET /api/host` returns:
 
     ```json
     {
       "computerName": "MY-PC",
       "ipAddresses": ["192.168.1.10"],
+      "generatedAt": "2026-10-26T11:20:17.123+08:00"
+    }
+    ```
+
+    - The same information as list_host_information.
+    - `ipAddresses` lists the machine's IP addresses, IPv4 first. It is always an array, even when empty.
+    - `generatedAt` is an ISO 8601 timestamp of when the information was read, in local time with its time-zone offset.
+- `GET /api/software` returns:
+
+    ```json
+    {
+      "computerName": "MY-PC",
       "generatedAt": "2026-10-26T11:20:17.123+08:00",
       "items": [{ "Name": "Git", "Version": "2.39.1" }]
     }
     ```
 
-    - `generatedAt` is an ISO 8601 timestamp of when the list was read, in local time with its time-zone offset.
-    - `ipAddresses` lists the machine's IP addresses, IPv4 first, the same as list_installed_software. It is always an array, even when empty.
+    - `computerName` and `generatedAt` are the host tag: the host name, and an ISO 8601 timestamp of when the list was read, in local time with its time-zone offset.
     - `items` is always an array, even when empty.
 - `GET /api/executables?categories=executable,library` returns:
 
@@ -127,7 +140,7 @@ The page gets its data from a JSON API on the same server.
         - Names are case-sensitive, as with `-c`: `Executable` is an unknown name.
         - An empty list (e.g. `?categories=`) also returns `400`, as `-c` with no names is an error.
     - The response's `categories` lists the categories that were searched.
-    - `generatedAt` is an ISO 8601 timestamp of when the list was read, in local time with its time-zone offset.
+    - `computerName` and `generatedAt` are the host tag, as for `/api/software`.
     - `items` is always an array, even when empty, with the same fields and order as list_executables.
 - Unknown `/api/` paths return `404` with `{ "error": "<message>" }`.
 - Any other path serves a file of the page (`/` serves the page itself); unknown files return `404`.
