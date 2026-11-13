@@ -2,12 +2,10 @@ package main
 
 import (
 	"bufio"
-	"io"
 	"os"
 	"path/filepath"
 	"regexp"
 	"strings"
-	"syscall"
 )
 
 // virtualFilesystems are never searched, as in list_executables.sh.
@@ -23,59 +21,6 @@ func findExecutables(want map[string]bool) []Executable {
 		list = appendExecutables(list, root, want)
 	}
 	return sortExecutables(list, strings.Compare) // byte-wise, like LC_ALL=C sort
-}
-
-// appendExecutables searches the folder tree at root without crossing into
-// other filesystems, like find -xdev. A root that is a file (a bind-mounted
-// file) is checked on its own, as find does.
-func appendExecutables(list []Executable, root string, want map[string]bool) []Executable {
-	rootInfo, err := os.Lstat(root)
-	if err != nil {
-		return list
-	}
-	if rootInfo.Mode().IsRegular() {
-		if e, ok := checkFile(filepath.Dir(root), rootInfo, want); ok {
-			list = append(list, e)
-		}
-		return list
-	}
-	if !rootInfo.IsDir() {
-		return list
-	}
-	rootDev := rootInfo.Sys().(*syscall.Stat_t).Dev
-
-	stack := []string{root}
-	for len(stack) > 0 {
-		dir := stack[len(stack)-1]
-		stack = stack[:len(stack)-1]
-
-		f, err := os.Open(dir)
-		if err != nil {
-			continue
-		}
-		entries, _ := f.ReadDir(-1) // keeps what was read before an error
-		f.Close()
-
-		for _, entry := range entries {
-			if entry.IsDir() {
-				if info, err := entry.Info(); err == nil && info.Sys().(*syscall.Stat_t).Dev == rootDev {
-					stack = append(stack, filepath.Join(dir, entry.Name()))
-				}
-				continue
-			}
-			if !entry.Type().IsRegular() { // symbolic links and special files
-				continue
-			}
-			info, err := entry.Info()
-			if err != nil {
-				continue
-			}
-			if e, ok := checkFile(dir, info, want); ok {
-				list = append(list, e)
-			}
-		}
-	}
-	return list
 }
 
 // checkFile returns the regular file info in folder dir as an Executable if
@@ -94,7 +39,7 @@ func checkFile(dir string, info os.FileInfo, want map[string]bool) (Executable, 
 	case !want["Executable"] && !want["Script"] && !want["Other"]:
 		return Executable{}, false // no need to read the file
 	default:
-		category = contentCategory(filepath.Join(dir, name))
+		category = contentCategory(filepath.Join(dir, name), isELF)
 	}
 	if !want[category] {
 		return Executable{}, false
@@ -108,28 +53,9 @@ func checkFile(dir string, info os.FileInfo, want map[string]bool) (Executable, 
 	}, true
 }
 
-// contentCategory tells a program from a script by its first bytes: an ELF
-// program starts with "\x7fELF" and a script with "#!". A file that can't be
-// read is most likely a program.
-func contentCategory(path string) string {
-	f, err := os.Open(path)
-	if err != nil {
-		return "Executable"
-	}
-	defer f.Close()
-	head := make([]byte, 4)
-	n, err := io.ReadFull(f, head)
-	if err != nil && err != io.EOF && err != io.ErrUnexpectedEOF {
-		return "Executable"
-	}
-	head = head[:n]
-	switch {
-	case strings.HasPrefix(string(head), "\x7fELF"):
-		return "Executable"
-	case strings.HasPrefix(string(head), "#!"):
-		return "Script"
-	}
-	return "Other"
+// isELF tells an ELF program by its first bytes, "\x7fELF".
+func isELF(head []byte) bool {
+	return strings.HasPrefix(string(head), "\x7fELF")
 }
 
 // localMountPoints lists the mount points of the local disks from

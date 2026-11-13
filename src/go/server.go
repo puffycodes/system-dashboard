@@ -122,7 +122,7 @@ func writeJSON(w http.ResponseWriter, status int, data any) {
 }
 
 // computerName matches $env:COMPUTERNAME in the PowerShell version on Windows,
-// and uname -n in the .sh scripts on Linux.
+// and uname -n in the .sh scripts on Linux and macOS.
 func computerName() string {
 	if name := os.Getenv("COMPUTERNAME"); name != "" {
 		return name
@@ -133,14 +133,15 @@ func computerName() string {
 
 // ipAddresses lists the machine's addresses, IPv4 first, like
 // list_host_information.ps1 and .sh: loopback and link-local addresses are
-// skipped. On Windows only interfaces that are up count, as in the .ps1; on
-// Linux every interface counts, as with `ip addr show scope global` in the .sh.
-// It never returns nil, so the API always sends an array.
+// skipped. On Windows and macOS only interfaces that are up count, as in the
+// .ps1 and in the .sh's ifconfig on macOS; on Linux every interface counts, as
+// with `ip addr show scope global` in the .sh. It never returns nil, so the
+// API always sends an array.
 func ipAddresses() []string {
 	v4, v6 := []string{}, []string{}
 	ifaces, _ := net.Interfaces()
 	for _, iface := range ifaces {
-		if runtime.GOOS == "windows" && iface.Flags&net.FlagUp == 0 {
+		if runtime.GOOS != "linux" && iface.Flags&net.FlagUp == 0 {
 			continue
 		}
 		addrs, _ := iface.Addrs()

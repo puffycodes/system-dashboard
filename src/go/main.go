@@ -1,6 +1,6 @@
 // Command system-dashboard serves the system dashboard on http://localhost:<port>/.
 //
-// It is a single self-contained executable for Windows or Linux: the web UI
+// It is a single self-contained executable for Windows, Linux or macOS: the web UI
 // in www/ is embedded at build time, so the binary can be copied to any
 // machine of that OS and run with nothing installed.
 //
