@@ -1,5 +1,7 @@
 # List Installed Software
 
+On macOS, see also [macOS support](macos.md) for the sources and what is left out.
+
 - Tag the list with the host it was read on
     - Turn on/off with an option (default: on)
     - Host Name

@@ -1,5 +1,7 @@
 # List Executables
 
+On macOS, see also [macOS support](macos.md) for the volumes searched and the categories.
+
 - Tag the list with the host it was read on, as in [list_installed_software](list_installed_software.md)
     - Turn on/off with an option (default: on)
     - Host Name

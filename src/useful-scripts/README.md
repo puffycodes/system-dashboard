@@ -15,12 +15,12 @@ The lists are tagged with only the host name and timestamp, which identify where
 ## List host information
 
 Scripts that list the information that identifies a machine: its host name, IP addresses and the current timestamp.
-Requirements: [docs/spec/list_host_information.md](../../docs/spec/list_host_information.md).
+Requirements: [docs/spec/list_host_information.md](../../docs/spec/list_host_information.md), and [docs/spec/macos.md](../../docs/spec/macos.md) for macOS.
 
 | Script | Platform | Output formats | Default output |
 |---|---|---|---|
 | `list_host_information.ps1` | Windows (PowerShell 5.1+) | text, csv, json, html | stdout |
-| `list_host_information.sh` | Linux (any POSIX `sh`) | text, csv, json, html | stdout |
+| `list_host_information.sh` | Linux or macOS (any POSIX `sh`) | text, csv, json, html | stdout |
 | `list_host_information.bat` | Windows (cmd) | text only | `host_information.txt` |
 
 ```powershell
@@ -52,8 +52,8 @@ sh list_host_information.sh -f csv -o host_information.csv
 
 | Field | Meaning |
 |---|---|
-| Host Name | The computer name (`uname -n` on Linux), the same as in the other scripts' host tag |
-| IP Addresses | The addresses of the machine's active network interfaces, IPv4 first. Loopback and link-local addresses (`127.x.x.x`, `::1`, `169.254.x.x`, `fe80::`) are skipped. Shown as `N/A` if there are none |
+| Host Name | The computer name (`uname -n` on Linux and macOS), the same as in the other scripts' host tag |
+| IP Addresses | The addresses of the machine's active network interfaces, IPv4 first (from `ifconfig` on macOS). Loopback and link-local addresses (`127.x.x.x`, `::1`, `169.254.x.x`, `fe80::`) are skipped. Shown as `N/A` if there are none |
 | Timestamp | When the information was read, in ISO 8601 local time with its time-zone offset (e.g. `2026-11-12T10:54:59+08:00`). The batch script uses the system's date and time format instead |
 
 ### Output formats
@@ -72,17 +72,17 @@ Exit codes: `0` on success; `2` for an invalid option or format (`.sh` only. In 
 ## List installed software
 
 Scripts that list the software installed on a machine, with each item's name and version. By default they tag the list with the host name and current timestamp.
-Requirements: [docs/spec/list_installed_software.md](../../docs/spec/list_installed_software.md).
+Requirements: [docs/spec/list_installed_software.md](../../docs/spec/list_installed_software.md), and [docs/spec/macos.md](../../docs/spec/macos.md) for macOS.
 
 | Script | Platform | Output formats | Default output |
 |---|---|---|---|
 | [`list_installed_software.ps1`](#powershell-windows) | Windows (PowerShell 5.1+) | text, csv, json, html | stdout |
-| [`list_installed_software.sh`](#sh-linux) | Linux (any POSIX `sh`) | text, csv, json, html | stdout |
+| [`list_installed_software.sh`](#sh-linux-and-macos) | Linux or macOS (any POSIX `sh`) | text, csv, json, html | stdout |
 | [`list_installed_software.bat`](#batch-windows) | Windows (cmd) | text only | `installed_software.txt` |
 
 On Windows, use the PowerShell script. It implements the full spec and handles special characters in names correctly. The batch script is kept for machines where PowerShell isn't available.
 
-The dashboards reproduce these scripts' lists entry for entry: [`src/powershell/`](../powershell/) and [`src/go/`](../go/) on Windows match the `.ps1` script, and `src/go/` on Linux matches the `.sh` script. If you change what a script lists, update the dashboards to match. Their System panel shows the same host name and IP addresses as `list_host_information`. The dashboards' Download button also writes the same text, csv, json and html files as the `.sh` script, built by `softwareFormats` and `executableFormats` in `www/app.js`. If you change an output format, change it there too, in both UI copies.
+The dashboards reproduce these scripts' lists entry for entry: [`src/powershell/`](../powershell/) and [`src/go/`](../go/) on Windows match the `.ps1` script, and `src/go/` on Linux and macOS matches the `.sh` script. If you change what a script lists, update the dashboards to match. Their System panel shows the same host name and IP addresses as `list_host_information`. The dashboards' Download button also writes the same text, csv, json and html files as the `.sh` script, built by `softwareFormats` and `executableFormats` in `www/app.js`. If you change an output format, change it there too, in both UI copies.
 
 ### PowerShell (Windows)
 
@@ -114,7 +114,7 @@ powershell -ExecutionPolicy Bypass -File .\list_installed_software.ps1 -Format c
 
 Help: `Get-Help .\list_installed_software.ps1 -Full`
 
-### sh (Linux)
+### sh (Linux and macOS)
 
 ```sh
 sh list_installed_software.sh [-f text|csv|json|html] [-o output_file] [-n]
@@ -170,13 +170,18 @@ Entries without a display name are skipped, and so are hidden system components.
 
 It also includes Flatpak apps and Snaps when they are present. Snaps are skipped when the snap service isn't running, as in WSL without systemd. On Linux the name is the package name (e.g. `google-chrome-stable`), and the list includes libraries and other dependencies.
 
+**macOS** lists:
+
+- The apps (`.app` bundles) in `/Applications` and `~/Applications`, and in their subfolders (e.g. `/Applications/Utilities`), but not apps inside other apps. The name is the app's name as Finder shows it (e.g. `Google Chrome`), and the version is its `CFBundleShortVersionString`, or `CFBundleVersion` if that is missing. The apps that come with macOS (e.g. Safari, Mail) are left out.
+- Homebrew formulae and casks, when Homebrew is installed: the same as `brew list --versions` and `brew list --cask --versions`, read from Homebrew's `Cellar` and `Caskroom` folders in `/opt/homebrew` (Apple silicon) and `/usr/local` (Intel), so `brew` itself isn't run. If more than one version is installed, the latest is listed. An app installed as a cask can appear twice, by its app name and by its cask name.
+
 In every script, a missing version is shown as `N/A`, and duplicate name + version entries are listed once.
 
 ### Host tag
 
 Unless turned off (`-NoHostTag`, or `-n` for `.sh` and `.bat`), the output also gives:
 
-- **Host Name**: the computer name (`uname -n` on Linux), as in [`list_host_information`](#list-host-information).
+- **Host Name**: the computer name (`uname -n` on Linux and macOS), as in [`list_host_information`](#list-host-information).
 - **Timestamp**: when the list was made, in ISO 8601 local time with its time-zone offset (e.g. `2026-11-12T10:54:59+08:00`). The batch script uses the system's date and time format instead.
 
 The IP addresses are no longer in these files; use `list_host_information` for them.
@@ -201,14 +206,14 @@ The IP addresses are no longer in these files; use `list_host_information` for t
 ## List executables
 
 Scripts that list the executable files on a machine's local disks, with each file's name, directory, size, last modified time and category. By default they list only programs; dynamic libraries, scripts, installers and other executable files are listed when you ask for them. Like `list_installed_software`, they tag the list with the host name and timestamp by default.
-Requirements: [docs/spec/list_executables.md](../../docs/spec/list_executables.md).
+Requirements: [docs/spec/list_executables.md](../../docs/spec/list_executables.md), and [docs/spec/macos.md](../../docs/spec/macos.md) for macOS.
 
 | Script | Platform | Output formats | Default output |
 |---|---|---|---|
 | [`list_executables.ps1`](#list_executablesps1-windows) | Windows (PowerShell 5.1+) | text, csv, json, html | stdout |
-| [`list_executables.sh`](#list_executablessh-linux) | Linux (any POSIX `sh`) | text, csv, json, html | stdout |
+| [`list_executables.sh`](#list_executablessh-linux-and-macos) | Linux or macOS (any POSIX `sh`) | text, csv, json, html | stdout |
 
-Searching whole disks takes a while, often several minutes on Windows. Folders that can't be read are skipped, so run the scripts as administrator (Windows) or root (Linux) to see everything.
+Searching whole disks takes a while, often several minutes on Windows. Folders that can't be read are skipped, so run the scripts as administrator (Windows) or root (Linux and macOS) to see everything. On macOS, some folders are protected even from root; see [macOS: Full Disk Access](../../README.md#macos-full-disk-access).
 
 ### list_executables.ps1 (Windows)
 
@@ -238,7 +243,7 @@ Examples:
 
 Help: `Get-Help .\list_executables.ps1 -Full`
 
-### list_executables.sh (Linux)
+### list_executables.sh (Linux and macOS)
 
 ```sh
 sh list_executables.sh [-f text|csv|json|html] [-o output_file] [-a] [-c categories] [-p folder]... [-n]
@@ -248,9 +253,9 @@ sh list_executables.sh [-f text|csv|json|html] [-o output_file] [-a] [-c categor
 |---|---|---|
 | `-f` | `text` | Output format: `text`, `csv`, `json` or `html`. |
 | `-o` | *(stdout)* | File to write to. If omitted, output is printed. |
-| `-a` | | Also search network and other mounted filesystems, except virtual ones such as `/proc` and `/sys`. |
+| `-a` | | Also search network shares and other mounted filesystems, except virtual ones such as `/proc` and `/sys` on Linux and `devfs` on macOS. |
 | `-c` | `executable` | The [categories](#categories) to list, separated by commas: any of `executable`, `library`, `script`, `installer` and `other`, or `all`. |
-| `-p` | *(local disks)* | Search this folder instead of the local disks. Repeat it for more folders. |
+| `-p` | *(local disks)* | Search this folder instead of the local disks or volumes. Repeat it for more folders. |
 | `-n` | | Leave out the host name and timestamp. |
 | `-h` | | Show usage. |
 
@@ -265,27 +270,29 @@ sh list_executables.sh -c script,installer
 sh list_executables.sh -n -f csv -o executables.csv
 ```
 
-Like `list_installed_software.sh`, it refuses to be sourced. It works with GNU or BusyBox tools.
+Like `list_installed_software.sh`, it refuses to be sourced. It works with GNU or BusyBox tools on Linux, and with the BSD tools that macOS ships.
 
 ### Categories
 
 Each file listed is in one category, shown in its `Category` field:
 
-| Category | Windows (by extension) | Linux |
-|---|---|---|
-| `Executable` | Programs: `.exe`, `.com`, `.scr` | An ELF program: a file with an execute bit that starts with the ELF signature, or that can't be read |
-| `Library` | Dynamic libraries: `.dll`, `.ocx` | A dynamic library: a file named `*.so` or `*.so.*`, with or without an execute bit |
-| `Script` | `.bat`, `.cmd`, `.ps1`, `.vbs`, `.vbe`, `.js`, `.jse`, `.wsf`, `.wsh` | A file with an execute bit that starts with `#!` |
-| `Installer` | `.msi`, `.msp`, `.msix`, `.msixbundle`, `.appx`, `.appxbundle` | A package or installer: a file named `*.deb`, `*.rpm` or `*.run`, with or without an execute bit |
-| `Other` | Any other extension in `PATHEXT`, such as `.msc` and `.cpl` | Any other file with an execute bit |
+| Category | Windows (by extension) | Linux | macOS |
+|---|---|---|---|
+| `Executable` | Programs: `.exe`, `.com`, `.scr` | An ELF program: a file with an execute bit that starts with the ELF signature, or that can't be read | A Mach-O program: a file with an execute bit that starts with a Mach-O or universal binary signature, or that can't be read |
+| `Library` | Dynamic libraries: `.dll`, `.ocx` | A dynamic library: a file named `*.so` or `*.so.*`, with or without an execute bit | A dynamic library: a file named `*.dylib` or `*.so`, with or without an execute bit, or a framework's binary with an execute bit (e.g. `Foo.framework/Versions/A/Foo`) |
+| `Script` | `.bat`, `.cmd`, `.ps1`, `.vbs`, `.vbe`, `.js`, `.jse`, `.wsf`, `.wsh` | A file with an execute bit that starts with `#!` | The same as on Linux |
+| `Installer` | `.msi`, `.msp`, `.msix`, `.msixbundle`, `.appx`, `.appxbundle` | A package or installer: a file named `*.deb`, `*.rpm` or `*.run`, with or without an execute bit | A file named `*.pkg`, `*.mpkg` or `*.dmg`, with or without an execute bit |
+| `Other` | Any other extension in `PATHEXT`, such as `.msc` and `.cpl` | Any other file with an execute bit | Any other file with an execute bit, including Java `.class` files, which start like a universal binary |
 
-Only `Executable` is listed by default. On Linux, `Other` is mostly data files that happen to have an execute bit. On Windows, `PATHEXT` is the list of extensions Windows runs without them being typed; if you add one (e.g. `.py`), its files become `Other`.
+Only `Executable` is listed by default. On Linux and macOS, `Other` is mostly data files that happen to have an execute bit. On Windows, `PATHEXT` is the list of extensions Windows runs without them being typed; if you add one (e.g. `.py`), its files become `Other`.
 
 ### What is searched
 
 **Windows:** the fixed drives (`C:` and other internal disks). Junctions and symbolic links to folders are not followed, so no folder is searched twice.
 
 **Linux:** the filesystems on a `/dev/` block device, plus ZFS, so network mounts, `tmpfs`, `/proc` and, in WSL, the Windows drives under `/mnt/` are left out. Each filesystem is searched once, even if it's mounted in several places, and the search never crosses into another filesystem, including from a `-p` folder. Only regular files are listed: symbolic links aren't, but the files they point to are.
+
+**macOS:** the volumes that macOS marks as local, including external disks and mounted disk images under `/Volumes`, so network shares are left out. macOS's own support volumes (`/System/Volumes/VM`, `Preboot`, `Update` and so on) and Time Machine snapshots are left out too. Files on the data volume are shown under their usual paths (e.g. `/Users/...`, `/Applications/...`), not under `/System/Volumes/Data`, and each file is listed once. As on Linux, the search never crosses into another volume, and only regular files are listed: an app bundle or installer package that is a folder isn't, but the files inside it are. Some folders are protected by macOS's privacy controls, even from root; see [macOS: Full Disk Access](../../README.md#macos-full-disk-access) to include them.
 
 ### Fields and output formats
 

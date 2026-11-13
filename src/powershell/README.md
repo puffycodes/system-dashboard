@@ -47,7 +47,7 @@ Requests are handled one at a time, so while the executables are being searched,
 
 ## Keeping in sync with the Go version
 
-[`src/go/`](../go/) is the same dashboard as a self-contained binary for Windows and Linux. It serves the same API and keeps its own copy of the UI:
+[`src/go/`](../go/) is the same dashboard as a self-contained binary for Windows, Linux and macOS. It serves the same API and keeps its own copy of the UI:
 
 - **UI:** `src/go/www/` is a copy of `www/`. When you change the UI, change both copies, or copy one over the other.
 - **Software list:** `Get-InstalledSoftware` and `src/go/software_windows.go` use the same registry keys and filtering as [`list_installed_software.ps1`](../useful-scripts/list_installed_software.ps1). If you change one, change the others to match.

@@ -1,6 +1,6 @@
 # Design Approach: Running Scripts Without Installing Software
 
-Goal: run scripts/programs on a machine without installing extra runtimes such as Python or Node.js. Sections 1–3 cover Windows; [Linux](#linux) is covered at the end.
+Goal: run scripts/programs on a machine without installing extra runtimes such as Python or Node.js. Sections 1–3 cover Windows; [Linux](#linux) and [macOS](#macos) are covered at the end.
 
 ## 1. Use what Windows already ships (zero install)
 
@@ -80,3 +80,12 @@ ssh -L 8080:localhost:8080 user@host
 ```
 
 Then open `http://localhost:8080/` locally. The binary prints this hint when it can't open a browser.
+
+## macOS
+
+macOS, like Linux, has no built-in web server that a script can use, so the same Go codebase covers it ([macOS support](spec/macos.md)):
+
+- `software_darwin.go` and `executables_darwin.go` list the same entries as the `.sh` scripts, which detect macOS and use its own sources and BSD tools there. The parsing that doesn't need a Mac is in `macos.go`, so its tests run on any machine.
+- The binaries for Apple silicon (`darwin-arm64`) and Intel (`darwin-amd64`) are cross-built with `CGO_ENABLED=0`, like the Linux ones. Apple silicon only runs signed programs; Go's linker signs the `darwin-arm64` binary ad hoc, so it can be built on Windows or Linux without Apple's tools.
+- They aren't signed with an Apple Developer ID or notarized, which would need a paid Apple account. So macOS blocks a downloaded copy until the user allows it once, as the package's `README.txt` explains.
+- Macs usually have a desktop, so the dashboard opens in the default browser with `open`.
