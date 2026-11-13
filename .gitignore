@@ -1,6 +1,12 @@
 # Packages written by scripts/package.ps1 and scripts/package.sh
 /dist/
 
+# Temporary files, kept out of the repository
+/tmp/
+
+# Output of the list_host_information scripts (the .bat default and the README examples)
+host_information.*
+
 # Output of the list_installed_software scripts (the .bat default and the README examples)
 installed_software.*
 
